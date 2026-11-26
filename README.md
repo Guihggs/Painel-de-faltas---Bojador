@@ -57,7 +57,7 @@ const SUPABASE_KEY  = 'sb_publishable_...'; // chave PUBLISHABLE (ou anon)
 
 ### 5. Publicar o site
 
-Como é um único arquivo estático, basta servir o `index.html`. No GitHub: **Settings → Pages → Deploy from a branch → `main` / root**.
+O painel está publicado na Vercel em **https://painel-de-faltas-bojador.vercel.app**, que atualiza sozinha a cada commit na branch `main`. Como é um único arquivo estático, também funciona em qualquer hospedagem estática (ex.: GitHub Pages).
 
 ## Atualizar a base de faltas
 
