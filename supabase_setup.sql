@@ -70,9 +70,11 @@ grant  execute on function public.meu_papel() to authenticated;
 -- ---------- Vínculo instrutor ↔ campo "Criada por" ----------
 -- Regra de comparação: remove espaços no início/fim, reduz espaços repetidos a um só
 -- e converte para MAIÚSCULAS. Assim "Guilherme Alves" = "GUILHERME ALVES" = " guilherme  alves ".
+-- (sem "set search_path" de propósito: assim o Postgres "inline" a função e a consulta fica rápida;
+--  ela só usa funções do pg_catalog, qualificadas explicitamente)
 create or replace function public.norm_nome(p text)
-returns text language sql immutable parallel safe set search_path = '' as $$
-  select nullif(upper(btrim(regexp_replace(coalesce(p, ''), '\s+', ' ', 'g'))), '')
+returns text language sql immutable parallel safe as $$
+  select nullif(pg_catalog.upper(pg_catalog.btrim(pg_catalog.regexp_replace(coalesce(p, ''), '\s+', ' ', 'g'))), '')
 $$;
 grant execute on function public.norm_nome(text) to authenticated;
 
@@ -98,9 +100,9 @@ grant  execute on function public.minhas_chaves() to authenticated;
 -- Mesma regra de unicidade usada pelo painel: RA + CODTURMA + DATA_FALTA + MODULO.
 -- Pode ser lido como coluna calculada: .select('..., id_falta').
 create or replace function public.id_falta(f public.faltas)
-returns text language sql immutable parallel safe set search_path = '' as $$
-  select concat_ws('|', coalesce(btrim(f.ra), ''), coalesce(btrim(f.codturma), ''),
-                        coalesce(f.data_falta::text, ''), coalesce(btrim(f.modulo), ''))
+returns text language sql immutable parallel safe as $$
+  select pg_catalog.concat_ws('|', coalesce(pg_catalog.btrim(f.ra), ''), coalesce(pg_catalog.btrim(f.codturma), ''),
+                        coalesce(f.data_falta::text, ''), coalesce(pg_catalog.btrim(f.modulo), ''))
 $$;
 grant execute on function public.id_falta(public.faltas) to authenticated;
 
@@ -160,6 +162,9 @@ revoke execute on function public.substituir_faltas(text, jsonb) from public, an
 grant  execute on function public.substituir_faltas(text, jsonb) to authenticated;
 
 -- ---------- Checklist de acompanhamento (visão do instrutor) ----------
+-- Índices de desempenho (não alteram colunas nem dados): busca das faltas de cada instrutor.
+create index if not exists faltas_criada_por_norm_idx on public.faltas (public.norm_nome(criada_por));
+create index if not exists faltas_identificadores_criada_por_norm_idx on public.faltas_identificadores (public.norm_nome(criada_por));
 alter table public.faltas_identificadores          enable row level security;
 alter table public.checklist_acompanhamento_faltas enable row level security;
 
