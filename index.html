@@ -224,6 +224,9 @@ table.det td.ck{text-align:left}
 table.det tr.na td{background:color-mix(in srgb,var(--amarelo) 9%,transparent)}
 table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
 .ckmsg{font-size:13px;color:var(--mut);margin:8px 0 0}
+.lote{border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:8px 0 4px;background:var(--bg)}
+.lote summary{cursor:pointer;font-weight:700;font-size:14px}
+.lote table.det input[type=text]{height:30px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);padding:0 6px;font-size:13px;width:170px}
 @media(max-width:600px){.podium{min-height:240px}.avatar{width:48px;height:48px;font-size:16px}.block{font-size:22px}.bar{grid-template-columns:minmax(0,42%) minmax(0,1fr) auto}}
 </style>
 </head>
@@ -377,6 +380,11 @@ table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
   <label>Papel<select id="admPapel"><option value="instrutor">Instrutor</option><option value="admin">Administrador</option></select></label>
   <button class="btn pri" type="submit" id="admAdd">Criar acesso</button>
  </form>
+ <details class="lote" id="admLote"><summary>Criar acessos para todos os instrutores da base (“Criada por”)</summary>
+  <p class="note">Cria um acesso de <b>instrutor</b> para cada nome do campo “Criada por” que ainda não tem acesso, com o nome já vinculado e a mesma senha inicial para todos. Confira e ajuste os usuários sugeridos antes de criar.</p>
+  <div class="adm-form" style="margin-top:8px"><label>Senha inicial para todos<input id="loteSenha" type="text" minlength="6" autocomplete="new-password" spellcheck="false"></label><button class="btn" type="button" id="lotePrev">Ver instrutores sem acesso</button></div>
+  <div id="loteLista"></div>
+ </details>
  <p id="admMsg" class="note" hidden></p>
  <div class="tscroll" style="max-height:420px;margin-top:10px"><table class="det" id="admTable"></table></div>
 </div></dialog>
@@ -914,7 +922,7 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>renderC
 new MutationObserver(()=>renderCharts(cur())).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 
 /* ---------- gerenciar acessos (admin) ---------- */
-const dlgA=$('#dlgAdmin');let admMe=null;
+const dlgA=$('#dlgAdmin');let admMe=null,admUsers=[];
 const admMsg=(t,err)=>{const m=$('#admMsg');m.hidden=!t;m.textContent=t||'';m.style.color=err?'var(--nj)':''};
 async function admCall(body){
   const{data,error}=await sb.functions.invoke('admin-usuarios',{body});
@@ -923,14 +931,14 @@ async function admCall(body){
 }
 async function admLoad(){
   const t=$('#admTable');t.innerHTML='<tbody><tr><td>Carregando…</td></tr></tbody>';
-  try{const{usuarios}=await admCall({acao:'listar'});
+  try{const{usuarios}=await admCall({acao:'listar'});admUsers=usuarios;
     const fd=v=>v?new Date(v).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'nunca';
     t.innerHTML='<thead><tr><th>Usuário</th><th>Nome</th><th>Papel</th><th>Situação</th><th>Último acesso</th><th>Ações</th></tr></thead><tbody>'+
     usuarios.map(u=>{const me=u.user_id===admMe;return `<tr class="${u.ativo?'':'off'}" data-id="${esc(u.user_id)}" data-u="${esc(u.usuario)}" data-nome="${esc(u.nome||'')}">
       <td><b>${esc(u.usuario)}</b>${me?' <span class="badge b-o">você</span>':''}</td><td>${esc(u.nome||'—')}</td>
       <td>${u.papel==='admin'?'<span class="badge b-o">Administrador</span>':'<span class="badge b-i">Instrutor</span>'}</td>
       <td>${u.ativo?'<span class="badge b-ok">Ativo</span>':'<span class="badge b-n">Desativado</span>'}</td><td>${fd(u.ultimo_acesso)}</td>
-      <td><div class="adm-acts"><button class="btn" data-a="nome" title="Para instrutores, deve ser igual ao campo “Criada por” da base">Editar nome</button><button class="btn" data-a="senha">Redefinir senha</button>${me?'':`<button class="btn" data-a="papel" data-v="${u.papel==='admin'?'instrutor':'admin'}">${u.papel==='admin'?'Tornar instrutor':'Tornar admin'}</button><button class="btn" data-a="ativo" data-v="${u.ativo?0:1}">${u.ativo?'Desativar':'Reativar'}</button><button class="btn danger" data-a="excluir">Excluir</button>`}</div></td></tr>`}).join('')+'</tbody>';
+      <td><div class="adm-acts"><button class="btn" data-a="usuario" title="Muda o login (usuário) deste acesso">Editar usuário</button><button class="btn" data-a="nome" title="Para instrutores, deve ser igual ao campo “Criada por” da base">Editar nome</button><button class="btn" data-a="senha">Editar senha</button>${me?'':`<button class="btn" data-a="papel" data-v="${u.papel==='admin'?'instrutor':'admin'}">${u.papel==='admin'?'Tornar instrutor':'Tornar admin'}</button><button class="btn" data-a="ativo" data-v="${u.ativo?0:1}">${u.ativo?'Desativar':'Reativar'}</button><button class="btn danger" data-a="excluir">Excluir</button>`}</div></td></tr>`}).join('')+'</tbody>';
   }catch(e){t.innerHTML='';admMsg('Erro ao carregar usuários: '+e.message,true)}
 }
 $('#btnAdmin').addEventListener('click',async()=>{closeMenu();if(!isAdmin())return;const{data}=await sb.auth.getSession();admMe=data.session?.user.id;admMsg('');dlgA.showModal();admLoad()});
@@ -943,12 +951,65 @@ $('#admForm').addEventListener('submit',async e=>{e.preventDefault();
     admMsg(`Acesso criado para ${usuario}.`);$('#admForm').reset();admLoad()}catch(err){admMsg(err.message,true)}finally{b.disabled=false}});
 $('#admTable').addEventListener('click',async e=>{const btn=e.target.closest('button[data-a]');if(!btn)return;
   const tr=btn.closest('tr'),id=tr.dataset.id,u=tr.dataset.u,a=btn.dataset.a;let body;
-  if(a==='nome'){const n=prompt(`Nome de ${u} exatamente como aparece em “Criada por” (maiúsculas/minúsculas e espaços extras não importam):`,tr.dataset.nome);if(n===null)return;body={acao:'atualizar',user_id:id,nome:n.trim()}}
+  if(a==='usuario'){let n=prompt(`Novo usuário (login) para ${u}:`,u);if(n===null)return;n=n.trim().toLowerCase();if(n.endsWith('@'+LOGIN_DOMINIO))n=n.split('@')[0];
+    if(!/^[a-z0-9][a-z0-9._-]*$/.test(n)){admMsg('Usuário inválido: use letras minúsculas sem acento, números, ponto, hífen ou sublinhado.',true);return}
+    if(n===u)return;body={acao:'atualizar',user_id:id,usuario:n,email:n+'@'+LOGIN_DOMINIO}}
+  else if(a==='nome'){const n=prompt(`Nome de ${u} exatamente como aparece em “Criada por” (maiúsculas/minúsculas e espaços extras não importam):`,tr.dataset.nome);if(n===null)return;body={acao:'atualizar',user_id:id,nome:n.trim()}}
   else if(a==='senha'){const s=prompt(`Nova senha para ${u} (mínimo 6 caracteres):`);if(!s)return;body={acao:'senha',user_id:id,senha:s}}
   else if(a==='papel'){if(!confirm(`Alterar o papel de ${u} para ${btn.dataset.v==='admin'?'administrador':'instrutor'}?`))return;body={acao:'atualizar',user_id:id,papel:btn.dataset.v}}
   else if(a==='ativo'){const on=btn.dataset.v==='1';if(!confirm(`${on?'Reativar':'Desativar'} o acesso de ${u}?`))return;body={acao:'atualizar',user_id:id,ativo:on}}
   else if(a==='excluir'){if(!confirm(`Excluir definitivamente o acesso de ${u}? Isso não pode ser desfeito.`))return;body={acao:'excluir',user_id:id}}
-  btn.disabled=true;try{await admCall(body);admMsg(a==='senha'?`Senha de ${u} redefinida.`:'Alteração salva.');admLoad()}catch(err){admMsg(err.message,true);btn.disabled=false}});
+  btn.disabled=true;try{await admCall(body);admMsg(a==='senha'?`Senha de ${u} alterada.`:a==='usuario'?`Usuário alterado para ${body.usuario}. O login passa a ser ${body.usuario}.`:'Alteração salva.');admLoad()}catch(err){admMsg(err.message,true);btn.disabled=false}});
+
+/* ---------- criar acessos em lote para cada "Criada por" (admin) ---------- */
+const slug=v=>String(v).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+const PREP=new Set(['da','de','do','das','dos','e']);
+function sugereUsuario(nome,usados){
+  const p=slug(nome).split(' ').filter(x=>x&&!PREP.has(x));if(!p.length)return'';
+  const cands=[p.length>1?p[0]+'.'+p[p.length-1]:p[0]];for(let i=1;i<p.length-1;i++)cands.push(p[0]+'.'+p[i]+'.'+p[p.length-1]);
+  for(const c of cands)if(!usados.has(c))return c;
+  for(let n=2;;n++){const c=cands[0]+n;if(!usados.has(c))return c}
+}
+function loteCandidatos(){
+  const ligados=new Set(admUsers.map(u=>normNome(u.nome)).filter(Boolean));
+  const grupos=new Map();
+  for(const r of DATA){if(r.instr==='(não informado)')continue;const k=normNome(r.instr);if(!k)continue;
+    if(!grupos.has(k))grupos.set(k,{n:0,formas:new Map()});const g=grupos.get(k);g.n++;g.formas.set(r.instr,(g.formas.get(r.instr)||0)+1)}
+  const usados=new Set(admUsers.map(u=>u.usuario));const out=[];
+  for(const[k,g]of[...grupos].sort((a,b)=>a[0].localeCompare(b[0],'pt-BR'))){
+    const nome=[...g.formas].sort((a,b)=>b[1]-a[1])[0][0].replace(/\s+/g,' ').trim();
+    const tem=ligados.has(k);const usuario=tem?'':sugereUsuario(nome,usados);if(usuario)usados.add(usuario);
+    out.push({nome,faltas:g.n,tem,usuario})}
+  return out;
+}
+$('#lotePrev').addEventListener('click',async()=>{
+  const el=$('#loteLista');
+  if(SOURCE.sample||!DATA.length){el.innerHTML='<p class="note">Carregue a base real (Atualizar dados) para listar os nomes de “Criada por”.</p>';return}
+  if(!admUsers.length)await admLoad();
+  const c=loteCandidatos(),novos=c.filter(x=>!x.tem);
+  el.innerHTML=`<p class="note">${nf.format(c.length)} nomes em “Criada por” · ${nf.format(c.length-novos.length)} já têm acesso · ${nf.format(novos.length)} sem acesso.</p>`+
+   (novos.length?`<div class="tscroll" style="max-height:300px"><table class="det"><thead><tr><th><input type="checkbox" id="loteAll" checked aria-label="Marcar todos"></th><th>Nome (Criada por)</th><th>Usuário (login)</th><th>Faltas</th></tr></thead><tbody>`+
+   novos.map((x,i)=>`<tr data-i="${i}"><td><input type="checkbox" class="loteSel" checked aria-label="Criar acesso para ${esc(x.nome)}"></td><td>${esc(x.nome)}</td><td><input type="text" class="loteUser" value="${esc(x.usuario)}" spellcheck="false" autocapitalize="off"></td><td class="n">${nf.format(x.faltas)}</td></tr>`).join('')+
+   `</tbody></table></div><div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn pri" type="button" id="loteCriar">Criar acessos selecionados</button></div>`:'');
+  el._novos=novos;
+  const all=$('#loteAll');if(all)all.addEventListener('change',()=>el.querySelectorAll('.loteSel').forEach(x=>x.checked=all.checked));
+  const btn=$('#loteCriar');if(btn)btn.addEventListener('click',loteCriar);
+});
+async function loteCriar(){
+  const el=$('#loteLista'),senha=$('#loteSenha').value;
+  if(senha.length<6){admMsg('Informe a senha inicial (mínimo 6 caracteres).',true);$('#loteSenha').focus();return}
+  const sel=[...el.querySelectorAll('tbody tr')].filter(tr=>tr.querySelector('.loteSel').checked).map(tr=>({...el._novos[+tr.dataset.i],usuario:tr.querySelector('.loteUser').value.trim().toLowerCase()}));
+  if(!sel.length){admMsg('Nenhum instrutor selecionado.',true);return}
+  const inval=sel.filter(x=>!/^[a-z0-9][a-z0-9._-]*$/.test(x.usuario));if(inval.length){admMsg('Usuário inválido para: '+inval.map(x=>x.nome).join(', '),true);return}
+  const dup=sel.map(x=>x.usuario).filter((u,i,a)=>a.indexOf(u)!==i);if(dup.length){admMsg('Usuário repetido: '+[...new Set(dup)].join(', '),true);return}
+  if(!confirm(`Criar ${sel.length} acesso(s) de instrutor com a senha inicial informada?`))return;
+  const btn=$('#loteCriar');btn.disabled=true;let ok=0;const falhas=[];
+  for(const[i,x]of sel.entries()){admMsg(`Criando ${i+1} de ${sel.length}: ${x.usuario}…`);
+    try{await admCall({acao:'criar',usuario:x.usuario,email:x.usuario+'@'+LOGIN_DOMINIO,nome:x.nome,senha,papel:'instrutor'});ok++}catch(e){falhas.push(`${x.nome} (${x.usuario}): ${e.message}`)}}
+  btn.disabled=false;
+  admMsg(`${ok} acesso(s) criado(s).`+(falhas.length?` Não foi possível criar ${falhas.length}: ${falhas.join(' · ')}`:''),!!falhas.length);
+  await admLoad();$('#lotePrev').click();
+}
 
 if(typeof Chart!=='undefined'){Chart.defaults.font.family=getComputedStyle(document.body).fontFamily}
 if(!sb){showGate(typeof supabase==='undefined'?'Não foi possível carregar a biblioteca do Supabase. Verifique a conexão.':'Painel ainda não configurado: preencha SUPABASE_KEY no início do script.',true);$('#loginForm').querySelectorAll('input,#lgBtn').forEach(x=>x.disabled=true)}

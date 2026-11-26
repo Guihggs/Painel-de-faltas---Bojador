@@ -73,6 +73,22 @@ Deno.serve(async (req) => {
           if (error) return resp({ erro: error.message });
         }
         if (b.nome !== undefined) p.nome = b.nome || null;
+        if (b.usuario !== undefined) {
+          const usuario = String(b.usuario || "").trim().toLowerCase();
+          const email = String(b.email || "").trim().toLowerCase();
+          if (!/^[a-z0-9][a-z0-9._-]*$/.test(usuario) || !email.includes("@")) {
+            return resp({ erro: "Usuário inválido. Use letras minúsculas sem acento, números, ponto, hífen ou sublinhado." });
+          }
+          const { data: ja } = await db.from("painel_usuarios").select("user_id")
+            .eq("usuario", usuario).neq("user_id", b.user_id).maybeSingle();
+          if (ja) return resp({ erro: "Esse usuário já existe." });
+          const { error } = await db.auth.admin.updateUserById(b.user_id, {
+            email, email_confirm: true, user_metadata: { usuario },
+          });
+          if (error) return resp({ erro: /already|registered|exists/i.test(error.message) ? "Esse usuário já existe." : error.message });
+          p.usuario = usuario;
+          p.email = email;
+        }
         const { error } = await db.from("painel_usuarios").update(p).eq("user_id", b.user_id);
         if (error) return resp({ erro: error.message });
         return resp({ ok: true });

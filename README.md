@@ -34,6 +34,14 @@ Os dados ficam no **Supabase** e só usuários autorizados entram no painel.
 
 Isso cria as tabelas `painel_usuarios`, `faltas`, `cargas`, `faltas_identificadores` e `checklist_acompanhamento_faltas`, ativa o RLS, cria a função `salvar_checklist` e define o administrador inicial.
 
+### Criar os acessos dos instrutores
+
+Em **Gerenciar acessos → Criar acessos para todos os instrutores da base**, informe a senha inicial e clique em **Ver instrutores sem acesso**. O painel lista cada nome de `Criada por` que ainda não tem acesso, com um usuário sugerido (`nome.sobrenome`, sem acentos), que pode ser ajustado. Ao confirmar, cria um acesso de instrutor para cada um, já com o nome vinculado.
+
+Na lista de acessos, cada usuário tem **Editar usuário** (muda o login), **Editar nome** e **Editar senha**.
+
+> Depois de atualizar o `admin-usuarios.ts`, publique a Edge Function de novo no Supabase. É ela que permite trocar o usuário.
+
 > **Importante para os instrutores:** o vínculo é feito pelo campo **Nome** do acesso (em **Gerenciar acessos → Editar nome**). Ele deve ser igual ao `Criada por` da base, por exemplo `Ana Paula Ribeiro`. Instrutor sem nome preenchido não vê nenhuma falta.
 
 ### 2. Edge Function de acessos
