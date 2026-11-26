@@ -187,6 +187,14 @@ dialog::backdrop{background:rgba(8,15,30,.55)}
 .gmsg{font-size:13.5px;border-radius:10px;padding:8px 12px;background:var(--soft)}
 .gmsg.err{background:color-mix(in srgb,var(--vermelho) 14%,transparent);color:var(--nj)}
 .who{display:flex;gap:8px;align-items:center}
+#dlgAdmin{max-width:min(980px,96vw);width:100%}
+.adm-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end;margin:14px 0 6px}
+.adm-form label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:500;color:var(--mut)}
+.adm-form input,.adm-form select{height:42px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);padding:0 12px;font-size:15px}
+.adm-acts{display:flex;flex-wrap:wrap;gap:6px}
+.adm-acts .btn{height:32px;font-size:12.5px;padding:0 10px}
+.btn.danger{color:var(--nj)}
+table.det tr.off td{opacity:.55}
 footer{color:var(--mut);font-size:12.5px;padding:24px 0 40px}
 @media(max-width:600px){.podium{min-height:240px}.avatar{width:48px;height:48px;font-size:16px}.block{font-size:22px}.bar{grid-template-columns:minmax(0,42%) minmax(0,1fr) auto}}
 </style>
@@ -210,6 +218,7 @@ footer{color:var(--mut);font-size:12.5px;padding:24px 0 40px}
     <div class="pill"><span>Período analisado</span><b id="mPer">—</b></div>
     <button class="hbtn" id="btnRefresh" title="Buscar os dados mais recentes no Supabase">Atualizar dados</button>
     <button class="hbtn ghost" id="btnLoad" hidden>Publicar nova base</button>
+    <button class="hbtn ghost" id="btnAdmin" hidden>Gerenciar acessos</button>
     <div class="pill who" id="whoPill" hidden><span id="whoEmail"></span><button class="linkbtn" id="btnLogout" style="color:#fff;padding:0 0 0 6px">Sair</button></div>
    </div>
   </div>
@@ -316,13 +325,27 @@ footer{color:var(--mut);font-size:12.5px;padding:24px 0 40px}
  <p id="loadMsg" class="note" hidden></p>
  <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn" id="dlgClose">Cancelar</button><button class="btn pri" id="btnPublish" hidden>Publicar no Supabase</button></div>
 </div></dialog>
+<dialog id="dlgAdmin"><div class="dlg">
+ <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><h2>Gerenciar acessos</h2>
+ <p class="lead" style="margin:4px 0 0">Crie e administre quem pode entrar no painel. Instrutores só visualizam; administradores também publicam a base e gerenciam acessos.</p></div>
+ <button class="btn" id="admClose">Fechar</button></div>
+ <form class="adm-form" id="admForm">
+  <label>Usuário<input id="admUser" required autocapitalize="off" spellcheck="false" placeholder="nome.sobrenome"></label>
+  <label>Nome (opcional)<input id="admNome" placeholder="Nome para exibição"></label>
+  <label>Senha inicial<input id="admPass" type="text" minlength="6" required autocomplete="new-password"></label>
+  <label>Papel<select id="admPapel"><option value="instrutor">Instrutor</option><option value="admin">Administrador</option></select></label>
+  <button class="btn pri" type="submit" id="admAdd">Criar acesso</button>
+ </form>
+ <p id="admMsg" class="note" hidden></p>
+ <div class="tscroll" style="max-height:420px;margin-top:10px"><table class="det" id="admTable"></table></div>
+</div></dialog>
 <div class="gate" id="gate">
  <svg class="deco" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><polygon points="700,0 1200,0 1200,182" fill="#D42C4D"/><polygon points="0,620 0,800 494,800" fill="#D42C4D"/><rect x="900" y="640" width="220" height="56" rx="28" fill="#ED9E06"/><rect x="980" y="672" width="200" height="56" rx="28" fill="#D42C4D"/><circle cx="160" cy="140" r="46" fill="#ED9E06"/></svg>
  <form class="gcard" id="loginForm">
   <img src="data:," alt="demà" id="gateLogo">
   <h2>Acompanhamento de Faltas – Instrutores</h2>
-  <p style="margin:0;color:var(--mut)">Projeto Bojador · acesso restrito a e-mails autorizados.</p>
-  <label>E-mail<input type="email" id="lgEmail" autocomplete="username" required></label>
+  <p style="margin:0;color:var(--mut)">Projeto Bojador · acesso restrito a usuários autorizados.</p>
+  <label>Usuário<input type="text" id="lgEmail" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="ex.: nome.sobrenome" required></label>
   <label>Senha<input type="password" id="lgPass" autocomplete="current-password" required></label>
   <div class="gmsg" id="lgMsg" hidden></div>
   <button class="btn pri" type="submit" id="lgBtn">Entrar</button>
@@ -338,6 +361,7 @@ footer{color:var(--mut);font-size:12.5px;padding:24px 0 40px}
    Encontre em: Project Settings → API Keys.
    NUNCA coloque aqui a senha do banco nem a chave secret/service_role. */
 const SUPABASE_URL='https://tukqyfjrhxaagrokjulf.supabase.co';
+const LOGIN_DOMINIO='renapsi.org.br'; /* usuário sem @ vira usuario@LOGIN_DOMINIO */
 const SUPABASE_KEY='sb_publishable_5CmqxlB0cPbt7yubAkxJIA__pvrFlOo';
 /* ============================================================ */
 /* ---------- utilidades ---------- */
@@ -682,7 +706,7 @@ let papel=null,pending=null;
 const gate=$('#gate'),lgMsg=$('#lgMsg');
 const gmsg=(t,err)=>{lgMsg.hidden=!t;lgMsg.textContent=t||'';lgMsg.classList.toggle('err',!!err)};
 $('#gateLogo').src=document.querySelector('.brand img.wm').src;$('#gateLogo').style.filter='brightness(0)';
-function showGate(msg,err){gate.hidden=false;gmsg(msg,err);$('#whoPill').hidden=true;$('#btnLoad').hidden=true;$('#btnRefresh').hidden=true}
+function showGate(msg,err){gate.hidden=false;gmsg(msg,err);$('#whoPill').hidden=true;$('#btnLoad').hidden=true;$('#btnAdmin').hidden=true;$('#btnRefresh').hidden=true}
 async function fetchBase(){
   $('#sampleTag').textContent='Buscando dados no Supabase…';
   const rows=[];let total=null;for(let i=0;;){const{data,error,count}=await sb.from('faltas').select(COLS_DB,i===0?{count:'exact'}:undefined).order('id').range(i,i+999);if(error)throw error;if(i===0)total=count;if(!data.length)break;rows.push(...data);i+=data.length;if(total!=null&&rows.length>=total)break}
@@ -694,18 +718,19 @@ async function fetchBase(){
 }
 async function afterLogin(session){
   const email=session.user.email||'';
-  const{data,error}=await sb.from('painel_usuarios').select('papel').limit(1);
+  const{data,error}=await sb.from('painel_usuarios').select('papel,ativo,usuario,nome').eq('user_id',session.user.id).maybeSingle();
   if(error){showGate('Erro ao verificar o acesso: '+error.message,true);return}
-  papel=data&&data[0]?data[0].papel:null;
-  if(!papel){await sb.auth.signOut();showGate(`O e-mail ${email} não está autorizado a ver este painel. Fale com a coordenação.`,true);return}
-  gate.hidden=true;$('#whoEmail').textContent=email;$('#whoPill').hidden=false;$('#btnRefresh').hidden=false;$('#btnLoad').hidden=papel!=='admin';
+  papel=data&&data.ativo?data.papel:null;
+  if(!papel){await sb.auth.signOut();showGate(`O usuário ${email.replace('@'+LOGIN_DOMINIO,'')} não está autorizado a ver este painel. Fale com a coordenação.`,true);return}
+  gate.hidden=true;$('#whoEmail').textContent=data.nome||data.usuario||email;$('#whoPill').hidden=false;$('#btnRefresh').hidden=false;$('#btnLoad').hidden=papel!=='admin';$('#btnAdmin').hidden=papel!=='admin';
   try{await fetchBase()}catch(e){toast('Erro ao buscar dados: '+e.message);$('#sampleTag').textContent='Não foi possível buscar os dados.'}
 }
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();if(!sb)return;
   $('#lgBtn').disabled=true;gmsg('Entrando…');
-  const{data,error}=await sb.auth.signInWithPassword({email:$('#lgEmail').value.trim(),password:$('#lgPass').value});
+  const lg=$('#lgEmail').value.trim().toLowerCase();
+  const{data,error}=await sb.auth.signInWithPassword({email:lg.includes('@')?lg:lg+'@'+LOGIN_DOMINIO,password:$('#lgPass').value});
   $('#lgBtn').disabled=false;
-  if(error){gmsg(/invalid/i.test(error.message)?'E-mail ou senha incorretos.':error.message,true);return}
+  if(error){gmsg(/invalid/i.test(error.message)?'Usuário ou senha incorretos.':/banned/i.test(error.message)?'Este acesso está desativado. Fale com a coordenação.':error.message,true);return}
   $('#lgPass').value='';gmsg('');afterLogin(data.session)});
 $('#lgDemo').addEventListener('click',()=>{gate.hidden=true;load(sample(),{sample:true,updated:new Date(),name:''});$('#btnRefresh').hidden=!sb;$('#btnRefresh').textContent=sb?'Entrar':'Atualizar dados'});
 $('#btnRefresh').addEventListener('click',async()=>{if(!sb)return;const{data}=await sb.auth.getSession();if(!data.session){showGate('');return}
@@ -753,6 +778,42 @@ const drop=$('#drop');['dragover','dragenter'].forEach(ev=>drop.addEventListener
 drop.addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)readFile(f)});
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>renderCharts(cur()));
 new MutationObserver(()=>renderCharts(cur())).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+/* ---------- gerenciar acessos (admin) ---------- */
+const dlgA=$('#dlgAdmin');let admMe=null;
+const admMsg=(t,err)=>{const m=$('#admMsg');m.hidden=!t;m.textContent=t||'';m.style.color=err?'var(--nj)':''};
+async function admCall(body){
+  const{data,error}=await sb.functions.invoke('admin-usuarios',{body});
+  if(error){let m=error.message;try{const j=await error.context.json();m=j.erro||j.message||m}catch(_){}throw new Error(m)}
+  if(data&&data.erro)throw new Error(data.erro);return data;
+}
+async function admLoad(){
+  const t=$('#admTable');t.innerHTML='<tbody><tr><td>Carregando…</td></tr></tbody>';
+  try{const{usuarios}=await admCall({acao:'listar'});
+    const fd=v=>v?new Date(v).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'nunca';
+    t.innerHTML='<thead><tr><th>Usuário</th><th>Nome</th><th>Papel</th><th>Situação</th><th>Último acesso</th><th>Ações</th></tr></thead><tbody>'+
+    usuarios.map(u=>{const me=u.user_id===admMe;return `<tr class="${u.ativo?'':'off'}" data-id="${esc(u.user_id)}" data-u="${esc(u.usuario)}">
+      <td><b>${esc(u.usuario)}</b>${me?' <span class="badge b-o">você</span>':''}</td><td>${esc(u.nome||'—')}</td>
+      <td>${u.papel==='admin'?'<span class="badge b-o">Administrador</span>':'<span class="badge b-i">Instrutor</span>'}</td>
+      <td>${u.ativo?'<span class="badge b-ok">Ativo</span>':'<span class="badge b-n">Desativado</span>'}</td><td>${fd(u.ultimo_acesso)}</td>
+      <td><div class="adm-acts"><button class="btn" data-a="senha">Redefinir senha</button>${me?'':`<button class="btn" data-a="papel" data-v="${u.papel==='admin'?'instrutor':'admin'}">${u.papel==='admin'?'Tornar instrutor':'Tornar admin'}</button><button class="btn" data-a="ativo" data-v="${u.ativo?0:1}">${u.ativo?'Desativar':'Reativar'}</button><button class="btn danger" data-a="excluir">Excluir</button>`}</div></td></tr>`}).join('')+'</tbody>';
+  }catch(e){t.innerHTML='';admMsg('Erro ao carregar usuários: '+e.message,true)}
+}
+$('#btnAdmin').addEventListener('click',async()=>{const{data}=await sb.auth.getSession();admMe=data.session?.user.id;admMsg('');dlgA.showModal();admLoad()});
+$('#admClose').addEventListener('click',()=>dlgA.close());
+$('#admForm').addEventListener('submit',async e=>{e.preventDefault();
+  let usuario=$('#admUser').value.trim().toLowerCase();const email=usuario.includes('@')?usuario:usuario+'@'+LOGIN_DOMINIO;
+  if(usuario.endsWith('@'+LOGIN_DOMINIO))usuario=usuario.split('@')[0];
+  const b=$('#admAdd');b.disabled=true;admMsg('Criando acesso…');
+  try{await admCall({acao:'criar',usuario,email,nome:$('#admNome').value.trim(),senha:$('#admPass').value,papel:$('#admPapel').value});
+    admMsg(`Acesso criado para ${usuario}.`);$('#admForm').reset();admLoad()}catch(err){admMsg(err.message,true)}finally{b.disabled=false}});
+$('#admTable').addEventListener('click',async e=>{const btn=e.target.closest('button[data-a]');if(!btn)return;
+  const tr=btn.closest('tr'),id=tr.dataset.id,u=tr.dataset.u,a=btn.dataset.a;let body;
+  if(a==='senha'){const s=prompt(`Nova senha para ${u} (mínimo 6 caracteres):`);if(!s)return;body={acao:'senha',user_id:id,senha:s}}
+  else if(a==='papel'){if(!confirm(`Alterar o papel de ${u} para ${btn.dataset.v==='admin'?'administrador':'instrutor'}?`))return;body={acao:'atualizar',user_id:id,papel:btn.dataset.v}}
+  else if(a==='ativo'){const on=btn.dataset.v==='1';if(!confirm(`${on?'Reativar':'Desativar'} o acesso de ${u}?`))return;body={acao:'atualizar',user_id:id,ativo:on}}
+  else if(a==='excluir'){if(!confirm(`Excluir definitivamente o acesso de ${u}? Isso não pode ser desfeito.`))return;body={acao:'excluir',user_id:id}}
+  btn.disabled=true;try{await admCall(body);admMsg(a==='senha'?`Senha de ${u} redefinida.`:'Alteração salva.');admLoad()}catch(err){admMsg(err.message,true);btn.disabled=false}});
 
 if(typeof Chart!=='undefined'){Chart.defaults.font.family=getComputedStyle(document.body).fontFamily}
 if(!sb){showGate(typeof supabase==='undefined'?'Não foi possível carregar a biblioteca do Supabase. Verifique a conexão.':'Painel ainda não configurado: preencha SUPABASE_KEY no início do script.',true);$('#loginForm').querySelectorAll('input,#lgBtn').forEach(x=>x.disabled=true)}
