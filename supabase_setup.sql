@@ -45,6 +45,16 @@ create table if not exists public.faltas_identificadores (
   visto_por_ultimo_em timestamptz not null default now()
 );
 
+-- Instrutores (do campo "Criada por") marcados como INATIVOS pelo administrador.
+-- Sem linha aqui = ativo. As faltas de instrutores inativos ficam fora de todo o painel.
+create table if not exists public.instrutores_status (
+  chave         text primary key,              -- "Criada por" normalizado (public.norm_nome)
+  nome          text,                          -- grafia exibida
+  ativo         boolean not null default true,
+  atualizado_por text,
+  atualizado_em timestamptz not null default now()
+);
+
 -- Checklist de acompanhamento individual de cada falta (separado da tabela de faltas).
 create table if not exists public.checklist_acompanhamento_faltas (
   id_checklist          uuid primary key default gen_random_uuid(),
@@ -96,6 +106,14 @@ $$;
 revoke execute on function public.minhas_chaves() from public, anon;
 grant  execute on function public.minhas_chaves() to authenticated;
 
+-- Chaves dos instrutores inativos (lidas uma vez por consulta).
+create or replace function public.instrutores_inativos()
+returns text[] language sql stable security definer set search_path = '' as $$
+  select coalesce(array_agg(chave), '{}') from public.instrutores_status where not ativo
+$$;
+revoke execute on function public.instrutores_inativos() from public, anon;
+grant  execute on function public.instrutores_inativos() to authenticated;
+
 -- Identificador estável de cada falta (não depende do "id" da tabela, que muda a cada nova base).
 -- Mesma regra de unicidade usada pelo painel: RA + CODTURMA + DATA_FALTA + MODULO.
 -- Pode ser lido como coluna calculada: .select('..., id_falta').
@@ -118,9 +136,12 @@ grant select on public.painel_usuarios, public.faltas, public.cargas to authenti
 drop policy if exists "ler faltas" on public.faltas;
 create policy "ler faltas" on public.faltas for select to authenticated
   using (
-    (select public.meu_papel()) = 'admin'
-    or ((select public.meu_papel()) = 'instrutor'
-        and public.norm_nome(criada_por) = any ((select public.minhas_chaves())::text[]))
+    coalesce(public.norm_nome(criada_por), '') <> all ((select public.instrutores_inativos())::text[])  -- só instrutores ativos
+    and (
+      (select public.meu_papel()) = 'admin'
+      or ((select public.meu_papel()) = 'instrutor'
+          and public.norm_nome(criada_por) = any ((select public.minhas_chaves())::text[]))
+    )
   );
 
 drop policy if exists "ler cargas" on public.cargas;
@@ -279,6 +300,7 @@ begin
       pg_catalog.translate(pg_catalog.lower(pg_catalog.btrim(coalesce(f.justificada, ''))), 'ãáàâéêíóôõúç', 'aaaaeeiooouc') as j
     from public.faltas f
     where nullif(pg_catalog.btrim(coalesce(f.criada_por, '')), '') is not null
+      and public.norm_nome(f.criada_por) <> all (public.instrutores_inativos())
       and (p_de is null or f.data_falta >= p_de) and (p_ate is null or f.data_falta <= p_ate)
   ), fl as (            -- uma linha por falta
     select b.idf, (array_agg(b.forma order by b.id))[1] as forma, min(b.ra) as ra, min(b.codturma) as codturma,
@@ -310,6 +332,58 @@ begin
 end $$;
 revoke execute on function public.ranking_instrutores(date, date) from public, anon;
 grant  execute on function public.ranking_instrutores(date, date) to authenticated;
+
+-- ---------- Instrutores ativos/inativos (só administrador) ----------
+alter table public.instrutores_status enable row level security;
+revoke all on public.instrutores_status from anon, authenticated;
+grant select on public.instrutores_status to authenticated;
+drop policy if exists "ler status instrutores" on public.instrutores_status;
+create policy "ler status instrutores" on public.instrutores_status for select to authenticated
+  using ((select public.meu_papel()) = 'admin');
+
+-- Lista todos os instrutores da base (ativos e inativos) com o total de faltas e se têm acesso ao painel.
+create or replace function public.listar_instrutores_base()
+returns table (chave text, nome text, faltas integer, ativo boolean, tem_acesso boolean, atualizado_por text, atualizado_em timestamptz)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if public.meu_papel() is distinct from 'admin' then
+    raise exception 'sem permissão de administrador' using errcode = '42501';
+  end if;
+  return query
+  with b as (
+    select public.norm_nome(f.criada_por) as k, pg_catalog.btrim(f.criada_por) as forma, public.id_falta(f) as idf
+    from public.faltas f where nullif(pg_catalog.btrim(coalesce(f.criada_por, '')), '') is not null
+  ), g as (
+    select b.k, (mode() within group (order by b.forma))::text as nome, (count(distinct b.idf))::integer as n from b group by b.k
+  )
+  select g.k, g.nome, g.n, coalesce(s.ativo, true),
+    exists (select 1 from public.painel_usuarios u where public.norm_nome(u.usuario) = g.k or public.norm_nome(u.nome) = g.k),
+    s.atualizado_por, s.atualizado_em
+  from g left join public.instrutores_status s on s.chave = g.k
+  order by g.nome;
+end $$;
+revoke execute on function public.listar_instrutores_base() from public, anon;
+grant  execute on function public.listar_instrutores_base() to authenticated;
+
+-- Marca um instrutor (chave normalizada do "Criada por") como ativo ou inativo.
+create or replace function public.definir_instrutor_ativo(p_chave text, p_ativo boolean, p_nome text default null)
+returns void language plpgsql security definer set search_path = '' as $$
+declare v_quem text;
+begin
+  if public.meu_papel() is distinct from 'admin' then
+    raise exception 'sem permissão de administrador' using errcode = '42501';
+  end if;
+  if public.norm_nome(p_chave) is null then
+    raise exception 'instrutor inválido' using errcode = '22023';
+  end if;
+  select coalesce(nullif(pg_catalog.btrim(nome), ''), usuario) into v_quem from public.painel_usuarios where user_id = auth.uid();
+  insert into public.instrutores_status (chave, nome, ativo, atualizado_por, atualizado_em)
+  values (public.norm_nome(p_chave), p_nome, coalesce(p_ativo, true), v_quem, now())
+  on conflict (chave) do update set ativo = excluded.ativo, nome = coalesce(excluded.nome, public.instrutores_status.nome),
+    atualizado_por = excluded.atualizado_por, atualizado_em = now();
+end $$;
+revoke execute on function public.definir_instrutor_ativo(text, boolean, text) from public, anon;
+grant  execute on function public.definir_instrutor_ativo(text, boolean, text) to authenticated;
 
 -- ---------- Administrador inicial ----------
 -- Quando o usuário abaixo for criado em Authentication → Users, ele vira admin automaticamente.

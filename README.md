@@ -87,6 +87,10 @@ O painel está publicado na Vercel em **https://painel-de-faltas-bojador.vercel.
    `RA, NOME, CODTURMA, MODULO, JUSTIFICADA, Criada por, DATA_FALTA, Criada em, EMAIL JOVEM, EMPRESA, ESTADO, DATAOCORRENCIA, GRUPO_OCORRENCIA, TIPO_OCORRENCIA, ATENDIMENTO_RESPONSAVEL, OBSERVACOES, DATA DESLIGAMENTO, Total Geral`
 4. Confira a prévia e clique em **Publicar no Supabase**. A nova base substitui a anterior para todos.
 
+## Instrutores ativos
+
+Em **Instrutores ativos** (menu do administrador), cada instrutor do campo `Criada por` pode ser marcado como **ativo** ou **inativo**. As faltas de instrutores inativos ficam fora de todo o painel — indicadores, gráficos, rankings e tabelas, para administradores e instrutores. O filtro é aplicado no banco (tabela `instrutores_status` + RLS). Nada é apagado: basta reativar.
+
 ## Checklist de acompanhamento
 
 - Fica na tabela `checklist_acompanhamento_faltas`, separada de `faltas` (a tabela de faltas não é alterada).

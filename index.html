@@ -203,7 +203,7 @@ dialog::backdrop{background:rgba(8,15,30,.55)}
 .gmsg{font-size:13.5px;border-radius:10px;padding:8px 12px;background:var(--soft)}
 .gmsg.err{background:color-mix(in srgb,var(--vermelho) 14%,transparent);color:var(--nj)}
 .who{display:flex;gap:8px;align-items:center}
-#dlgAdmin{max-width:min(980px,96vw);width:100%}
+#dlgAdmin,#dlgInstr{max-width:min(980px,96vw);width:100%}
 .adm-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end;margin:14px 0 6px}
 .adm-form label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:500;color:var(--mut)}
 .adm-form input,.adm-form select{height:42px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);padding:0 12px;font-size:15px}
@@ -310,7 +310,8 @@ body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
      <div class="pmenu" id="pMenu" hidden>
       <div id="admItems" hidden><div class="ptag">Administração</div>
        <button id="btnLoad">Publicar nova base</button>
-       <button id="btnAdmin">Gerenciar acessos</button><hr></div>
+       <button id="btnAdmin">Gerenciar acessos</button>
+       <button id="btnInstr">Instrutores ativos</button><hr></div>
       <button id="btnLogout">Sair</button>
      </div>
     </div>
@@ -388,7 +389,10 @@ body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
    <div class="panel"><h3>Por tipo de ocorrência</h3><div class="bars" id="bTipo"></div></div>
    <div class="panel so-admin"><h3>Ocorrências por instrutor</h3><div class="legend"><span><i style="background:var(--ok)"></i>Com atendimento</span><span><i style="background:var(--oc)"></i>Sem atendimento registrado</span></div><div class="bars" id="bOcInstr"></div></div>
    <div class="panel"><h3>Por responsável pelo atendimento</h3><div class="bars" id="bAtend"></div></div>
-   <div class="panel"><h3>Ocorrências por estado</h3><div class="bars" id="bOcUF"></div></div>
+   <div class="grid g2" style="grid-column:1/-1">
+    <div class="panel"><h3>Faltas por estado</h3><div class="legend"><span><i style="background:var(--just)"></i>Justificada</span><span><i style="background:var(--nj)"></i>Não justificada</span><span><i style="background:var(--ni)"></i>Não informado</span></div><div class="bars" id="bFaltasUF"></div></div>
+    <div class="panel"><h3>Ocorrências por estado</h3><div class="bars" id="bOcUF"></div></div>
+   </div>
    <div class="panel so-admin"><h3>Ocorrências por empresa</h3><div class="bars" id="bOcEmp"></div></div>
   </div>
  </section>
@@ -442,6 +446,14 @@ body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
  <label class="drop" id="drop">Arraste o arquivo aqui ou <b>clique para escolher</b><input type="file" id="file" accept=".xlsx,.xls,.csv" hidden></label>
  <p id="loadMsg" class="note" hidden></p>
  <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn" id="dlgClose">Cancelar</button><button class="btn pri" id="btnPublish" hidden>Publicar no Supabase</button></div>
+</div></dialog>
+<dialog id="dlgInstr"><div class="dlg">
+ <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><h2>Instrutores ativos</h2>
+ <p class="lead" style="margin:4px 0 0">Instrutores do campo “Criada por”. Desative quem não deve entrar nas análises: as faltas de instrutores <b>inativos</b> ficam fora de todo o painel (indicadores, gráficos, rankings e tabelas), para administradores e instrutores. Nada é apagado — reative quando quiser.</p></div>
+ <button class="btn" id="insClose">Fechar</button></div>
+ <div class="tbar" style="margin-top:12px"><input type="search" id="insBusca" placeholder="Buscar instrutor"><span class="qk" id="insFiltro"><button type="button" data-f="" aria-pressed="true">Todos</button><button type="button" data-f="1" aria-pressed="false">Ativos</button><button type="button" data-f="0" aria-pressed="false">Inativos</button></span></div>
+ <p id="insMsg" class="note"></p>
+ <div class="tscroll" style="max-height:460px"><table class="det" id="insTable"></table></div>
 </div></dialog>
 <dialog id="dlgAdmin"><div class="dlg">
  <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><h2>Gerenciar acessos</h2>
@@ -755,7 +767,8 @@ function renderOc(rows){
   bars('bTipo',countBy(oc,o=>o.tipo||'(não informado)'),'tipo',{color:'var(--oc)',total:n});
   if(!INS())bars('bOcInstr',countBy(oc,o=>o.instr).map(e=>({...e,parts:[[e.rs.filter(o=>o.atend).length,'var(--ok)','Com atendimento'],[e.rs.filter(o=>!o.atend).length,'var(--oc)','Sem atendimento']]})),'instr');
   bars('bAtend',countBy(oc,o=>o.atend||'(vazio)'),'atend',{color:'var(--ok)',total:n});
-  bars('bOcUF',countBy(oc,o=>o.estado||'(vazio)'),'estado',{color:'var(--oc)'});
+  bars('bFaltasUF',countBy(rows,r=>r.estado||'(vazio)').map(e=>({...e,parts:justParts(e.rs)})),'estado',{total:rows.length});
+  bars('bOcUF',countBy(oc,o=>o.estado||'(vazio)'),'estado',{color:'var(--oc)',total:n});
   if(!INS())bars('bOcEmp',countBy(oc,o=>o.empresa||'(vazio)'),'empresa',{color:'var(--oc)'});
 }
 
@@ -1070,7 +1083,8 @@ async function fetchBase(){
   if(!rows.length&&ins){DATA=prepare([]);SOURCE={sample:false,updated:c?new Date(c.carregado_em):null,by:c?.carregado_por||'',name:'Supabase'};for(const k in F)F[k]='';scope='';page=0;buildFilters();buildTableHead();renderDQ();render();
     $('#sampleTag').textContent=`Nenhuma falta com “Criada por” = ${MEU_USUARIO}${MEU_NOME.trim()?' ou '+MEU_NOME.replace(/\s+/g,' ').trim():''} na base atual.`;return}
   if(!rows.length){DATA=[];$('#sampleTag').textContent='A base ainda está vazia no Supabase.'+(papel==='admin'?' Use “Publicar nova base”.':' Peça a um administrador para publicá-la.');toast('Nenhum registro na base.');return}
-  load(rows,{sample:false,updated:c?new Date(c.carregado_em):null,by:c?.carregado_por||'',name:`Supabase${c?.arquivo?' · '+c.arquivo:''}`});
+  let inat=0;if(!ins){const{count}=await sb.from('instrutores_status').select('chave',{count:'exact',head:true}).eq('ativo',false);inat=count||0}
+  load(rows,{sample:false,updated:c?new Date(c.carregado_em):null,by:c?.carregado_por||'',name:`Supabase${c?.arquivo?' · '+c.arquivo:''}${inat?` · ${inat} instrutor(es) inativo(s) fora do painel`:''}`});
   toast(`${nf.format(DATA.length)} faltas carregadas do Supabase.`);
 }
 async function afterLogin(session){
@@ -1159,6 +1173,37 @@ async function admLoad(){
 }
 $('#btnAdmin').addEventListener('click',async()=>{closeMenu();if(!isAdmin())return;const{data}=await sb.auth.getSession();admMe=data.session?.user.id;admMsg('');dlgA.showModal();admLoad()});
 $('#admClose').addEventListener('click',()=>dlgA.close());
+
+/* ---------- instrutores ativos / inativos (admin) ---------- */
+const dlgI=$('#dlgInstr');let INSTR=[],insMudou=false,insF='';
+function insRender(){
+  const q=normNome($('#insBusca').value);const L=INSTR.filter(x=>(!q||normNome(x.nome).includes(q)||x.chave.includes(q))&&(insF===''||String(+x.ativo)===insF));
+  const at=INSTR.filter(x=>x.ativo).length;
+  $('#insMsg').textContent=`${nf.format(INSTR.length)} instrutores na base · ${nf.format(at)} ativos · ${nf.format(INSTR.length-at)} inativos (fora do painel).`;
+  $('#insTable').innerHTML='<thead><tr><th>Instrutor (Criada por)</th><th style="text-align:right">Faltas</th><th>Acesso ao painel</th><th>Situação</th><th>Última alteração</th></tr></thead><tbody>'+
+    (L.length?L.map(x=>`<tr class="${x.ativo?'':'off'}"><td><b>${esc(x.nome)}</b></td><td class="n" style="text-align:right">${nf.format(x.faltas)}</td><td>${x.tem_acesso?'<span class="badge b-ok">Tem acesso</span>':'<span class="badge b-i">Sem acesso</span>'}</td>
+      <td><label class="tg"><input type="checkbox" data-chave="${esc(x.chave)}" data-nome="${esc(x.nome)}"${x.ativo?' checked':''} aria-label="${esc(x.nome)} ativo"><span>${x.ativo?'Ativo':'Inativo'}</span></label></td>
+      <td style="font-size:12px;color:var(--mut)">${x.atualizado_em?`${fDT(new Date(x.atualizado_em))}${x.atualizado_por?' · '+esc(x.atualizado_por):''}`:'—'}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">Nenhum instrutor encontrado.</td></tr>')+'</tbody>';
+}
+async function insLoad(){
+  $('#insTable').innerHTML='<tbody><tr><td>Carregando…</td></tr></tbody>';
+  const{data,error}=await sb.rpc('listar_instrutores_base');
+  if(error){$('#insTable').innerHTML='';$('#insMsg').textContent='Erro ao carregar: '+error.message+' (verifique se o supabase_setup.sql atualizado foi executado).';return}
+  INSTR=data||[];insRender();
+}
+$('#btnInstr').addEventListener('click',()=>{closeMenu();if(!isAdmin()||!sb)return;insMudou=false;dlgI.showModal();insLoad()});
+$('#insBusca').addEventListener('input',insRender);
+$('#insFiltro').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;insF=b.dataset.f;$('#insFiltro').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));insRender()});
+$('#insTable').addEventListener('change',async e=>{const i=e.target.closest('input[data-chave]');if(!i)return;
+  const ativo=i.checked,x=INSTR.find(y=>y.chave===i.dataset.chave);
+  if(!ativo&&!confirm(`Desativar ${i.dataset.nome}? As ${nf.format(x?.faltas||0)} faltas dele(a) deixam de aparecer em todo o painel até ser reativado(a).`)){i.checked=true;return}
+  i.disabled=true;const{error}=await sb.rpc('definir_instrutor_ativo',{p_chave:i.dataset.chave,p_ativo:ativo,p_nome:i.dataset.nome});
+  if(error){i.checked=!ativo;i.disabled=false;toast('Não foi possível salvar: '+error.message);return}
+  if(x){x.ativo=ativo;x.atualizado_em=new Date().toISOString();x.atualizado_por=$('#whoEmail').textContent}
+  insMudou=true;insRender();toast(`${i.dataset.nome}: ${ativo?'ativo':'inativo'}. O painel será atualizado ao fechar.`)});
+async function insFechar(){dlgI.close();if(insMudou){insMudou=false;try{await fetchBase()}catch(err){toast('Erro ao atualizar: '+err.message)}}}
+$('#insClose').addEventListener('click',insFechar);
+dlgI.addEventListener('cancel',e=>{e.preventDefault();insFechar()});
 $('#admForm').addEventListener('submit',async e=>{e.preventDefault();
   let usuario=$('#admUser').value.trim().toLowerCase();const email=usuario.includes('@')?usuario:usuario+'@'+LOGIN_DOMINIO;
   if(usuario.endsWith('@'+LOGIN_DOMINIO))usuario=usuario.split('@')[0];
