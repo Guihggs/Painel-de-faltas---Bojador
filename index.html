@@ -381,10 +381,9 @@ body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
  <section id="ocorrencias">
   <h2>Acompanhamento das ocorrências<span class="so-ins"> — minhas faltas</span></h2>
   <p class="lead so-ins">Cada falta pode ter mais de uma ocorrência. Os números abaixo contam cada ocorrência registrada nas suas faltas.</p>
-  <p class="lead so-admin">O indicador considera o preenchimento de DATAOCORRENCIA, GRUPO_OCORRENCIA, TIPO_OCORRENCIA e ATENDIMENTO_RESPONSAVEL. Registros sem atendimento indicado são sinalizados para verificação — não são classificados como pendentes, pois a regra de pendência não está definida.</p>
+  <p class="lead so-admin">Cada falta pode ter mais de uma ocorrência. Os gráficos desta seção contam cada ocorrência registrada; a evolução mensal compara a quantidade de faltas com a de ocorrências.</p>
   <div class="grid g2">
-   <div class="panel"><h3>Indicador de acompanhamento</h3><div class="acomp" id="acomp"></div><div class="fieldfill" id="fieldfill"></div></div>
-   <div class="panel"><h3>Evolução mensal das ocorrências</h3><div class="fig"><canvas id="cOcMes"></canvas></div></div>
+   <div class="panel" style="grid-column:1/-1"><h3>Evolução mensal · faltas × ocorrências <span class="tip" tabindex="0" data-tip="Faltas: cada falta conta uma vez. Ocorrências: cada ocorrência registrada (uma falta pode ter mais de uma). A distância entre as linhas mostra quantas faltas ainda não têm ocorrência.">i</span></h3><div class="fig"><canvas id="cOcMes"></canvas></div></div>
    <div class="panel"><h3>Por grupo de ocorrência</h3><div class="bars" id="bGrupo"></div></div>
    <div class="panel"><h3>Por tipo de ocorrência</h3><div class="bars" id="bTipo"></div></div>
    <div class="panel so-admin"><h3>Ocorrências por instrutor</h3><div class="legend"><span><i style="background:var(--ok)"></i>Com atendimento</span><span><i style="background:var(--oc)"></i>Sem atendimento registrado</span></div><div class="bars" id="bOcInstr"></div></div>
@@ -751,13 +750,7 @@ const justParts=rs=>[[rs.filter(r=>r.just==='Justificada').length,'var(--just)',
 /* ---------- ocorrências ---------- */
 function renderOc(rows){
   /* contagem por OCORRÊNCIA: uma falta pode ter mais de uma */
-  const oc=allOcs(rows);const n=oc.length;const nf1=rows.filter(r=>r.hasOc).length;
-  const c={Completo:0,Parcial:0,Verificar:0};oc.forEach(o=>c[o.acomp]++);
-  $('#acomp').innerHTML=[['oc',n,`Ocorrências registradas · em ${nf.format(nf1)} falta(s)`,'var(--oc-ink)'],['atend',oc.filter(o=>o.atend).length,'Com responsável pelo atendimento','var(--ok)'],['comp',c.Completo,'Registro completo (4 campos)','var(--ok)'],['verif',c.Verificar,'Sem atendimento registrado — verificar','var(--warn)']]
-    .map(([s,v,l,col])=>`<button class="ac" data-s="${s}"><b style="color:${col}">${nf.format(v)}</b><span>${l}${n&&s!=='oc'?` · ${pf(v/n)}`:''}</span></button>`).join('');
-  $('#acomp').querySelectorAll('.ac').forEach(b=>b.addEventListener('click',()=>{scope=b.dataset.s;page=0;renderTable();document.getElementById('detalhe').scrollIntoView()}));
-  const fields=INS()?[['Data da ocorrência',o=>o.dataOc],['Grupo',o=>o.grupo],['Tipo',o=>o.tipo],['Responsável pelo atendimento',o=>o.atend]]:[['DATAOCORRENCIA',o=>o.dataOc],['GRUPO_OCORRENCIA',o=>o.grupo],['TIPO_OCORRENCIA',o=>o.tipo],['ATENDIMENTO_RESPONSAVEL',o=>o.atend]];
-  $('#fieldfill').innerHTML=`<div style="font-size:12.5px;color:var(--mut);font-weight:600">Preenchimento dos campos nas ocorrências</div>`+fields.map(([l,f])=>{const v=oc.filter(f).length;return`<div class="bar" style="cursor:default"><span class="k" style="font-size:12px">${l}</span><span class="t"><i style="width:${n?v/n*100:0}%;background:var(--brand-2)"></i></span><span class="v">${pf(n?v/n:NaN)}</span></div>`}).join('');
+  const oc=allOcs(rows);const n=oc.length;
   bars('bGrupo',countBy(oc,o=>o.grupo||'(não informado)'),'grupo',{color:'var(--oc)',total:n});
   bars('bTipo',countBy(oc,o=>o.tipo||'(não informado)'),'tipo',{color:'var(--oc)',total:n});
   if(!INS())bars('bOcInstr',countBy(oc,o=>o.instr).map(e=>({...e,parts:[[e.rs.filter(o=>o.atend).length,'var(--ok)','Com atendimento'],[e.rs.filter(o=>!o.atend).length,'var(--oc)','Sem atendimento']]})),'instr');
@@ -785,7 +778,8 @@ function renderCharts(rows){
   const o2=baseOpts();o2.interaction={mode:'index',intersect:false};o2.onClick=o.onClick;
   o2.plugins.tooltip.callbacks={label:i=>`${i.dataset.label}: ${nf.format(i.raw)}`};
   const oc=css('--oc'),ok=css('--ok');
-  chart('cOcMes',{type:'line',data:{labels,datasets:[{label:'Ocorrências',data:ms.map(([,rs])=>allOcs(rs).length),borderColor:oc,backgroundColor:oc,borderWidth:2,pointRadius:4,pointBorderColor:css('--panel'),pointBorderWidth:2,tension:.25},{label:'Com atendimento registrado',data:ms.map(([,rs])=>allOcs(rs).filter(o=>o.atend).length),borderColor:ok,backgroundColor:ok,borderWidth:2,pointRadius:4,pointBorderColor:css('--panel'),pointBorderWidth:2,tension:.25,borderDash:[5,4]}]},options:{...o2,plugins:{...o2.plugins,legend:{display:true,position:'top',align:'start',labels:{color:css('--mut'),boxWidth:10,boxHeight:10,usePointStyle:true}}}}});
+  const fx=css('--brand-2'),pc=css('--panel');
+  chart('cOcMes',{type:'line',data:{labels,datasets:[{label:'Faltas',data:ms.map(([,rs])=>rs.length),borderColor:fx,backgroundColor:fx,borderWidth:2.5,pointRadius:4,pointBorderColor:pc,pointBorderWidth:2,tension:.25},{label:'Ocorrências',data:ms.map(([,rs])=>allOcs(rs).length),borderColor:oc,backgroundColor:oc,borderWidth:2.5,pointRadius:4,pointBorderColor:pc,pointBorderWidth:2,tension:.25}]},options:{...o2,plugins:{...o2.plugins,tooltip:{...o2.plugins.tooltip,callbacks:{label:i=>`${i.dataset.label}: ${nf.format(i.raw)}`,footer:it=>{const f=it.find(x=>x.dataset.label==='Faltas'),o=it.find(x=>x.dataset.label==='Ocorrências');return f&&o?`Diferença: ${nf.format(f.raw-o.raw)}`:''}}},legend:{display:true,position:'top',align:'start',labels:{color:css('--mut'),boxWidth:10,boxHeight:10,usePointStyle:true}}}}});
   // scatter (comparativo entre instrutores: só na visão administrativa)
   if(!INS()){
   const st=instrStats(rows);const o3=baseOpts();o3.scales.x={title:{display:true,text:'Faltas registradas',color:css('--mut')},grid:{color:css('--line')},ticks:{color:css('--mut')},beginAtZero:true};
