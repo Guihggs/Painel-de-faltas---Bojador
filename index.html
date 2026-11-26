@@ -341,7 +341,7 @@ table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
  <section id="detalhe">
   <h2>Detalhamento individual</h2>
   <p class="lead so-admin">Selecione um instrutor para ver somente os registros dele. A tabela também segue os filtros gerais e as seleções feitas nos rankings e gráficos.</p>
-  <p class="lead so-ins">Somente as faltas registradas por você. Marque o andamento de cada falta nas colunas de acompanhamento — cada alteração é salva automaticamente, com data, horário e responsável. Linhas destacadas em amarelo ainda não têm acompanhamento iniciado.</p>
+  <p class="lead so-ins">Somente as faltas registradas por você. Marque o andamento de cada falta nas colunas de acompanhamento — cada alteração é salva automaticamente, com data, horário e responsável. Faltas que já têm ocorrência registrada na base contam como acompanhadas (“Ocorrência lançada” = Sim · base) e mostram a data da atualização da base; quando você altera algo, vale a data da sua alteração. Linhas destacadas em amarelo ainda não têm acompanhamento iniciado.</p>
   <div class="panel">
    <div class="tbar">
     <select id="tInstr" class="so-admin" aria-label="Instrutor"></select>
@@ -466,7 +466,9 @@ const minhasChaves=()=>[MEU_USUARIO,MEU_NOME].map(normNome).filter(Boolean);
 const CK=new Map();/* id_falta → checklist salvo */
 const CKF=[['email_enviado','E-MAIL ENVIADO','E-mails enviados'],['resposta_recebida','RESPOSTA RECEBIDA','Respostas recebidas'],['falta_justificada','FALTA JUSTIFICADA','Faltas justificadas no checklist'],['ocorrencia_lancada','OCORRÊNCIA LANÇADA','Ocorrências lançadas']];
 const ckOf=r=>CK.get(r.idFalta);
-const ckVal=(r,f)=>!!(ckOf(r)||{})[f];
+/* falta com ocorrência registrada na base já conta como acompanhada: "Ocorrência lançada" = Sim (vindo da base) */
+const ckBase=(r,f)=>f==='ocorrencia_lancada'&&!!r.hasOc;
+const ckVal=(r,f)=>!!(ckOf(r)||{})[f]||ckBase(r,f);
 const ckStarted=r=>CKF.some(([f])=>ckVal(r,f));
 
 /* ---------- preparação dos dados ---------- */
@@ -689,8 +691,11 @@ const COLS_INS=[['_st','Situação'],['ra','RA'],['nome','NOME'],...CKF.map(([f,
 const cols=()=>INS()?COLS_INS:COLS;
 const SCOPES={just:['Justificadas',r=>r.just==='Justificada'],nj:['Não justificadas',r=>r.just==='Não justificada'],oc:['Com ocorrência',r=>r.hasOc],atend:['Ocorrências com atendimento',r=>r.hasOc&&r.atend],comp:['Ocorrências completas',r=>r.acomp==='Completo'],verif:['Ocorrências sem atendimento registrado',r=>r.acomp==='Verificar'],
   ck_none:['Sem acompanhamento iniciado',r=>!ckStarted(r)],...Object.fromEntries(CKF.map(([f,,l])=>['ck_'+f,[l,r=>ckVal(r,f)]]))};
-const ckDate=r=>{const c=ckOf(r);return c&&c.data_ultima_alteracao?new Date(c.data_ultima_alteracao):null};
-const cell=(r,k)=>{if(k==='ck_data'){const d=ckDate(r);return d?fDT(d):''}if(k.startsWith('ck_'))return ckVal(r,k.slice(3))?'Sim':'Não';
+/* última alteração: a do instrutor (manual) ou, se o acompanhamento veio da base, a data da atualização da base */
+const ckFonte=r=>{const c=ckOf(r);return c&&c.data_ultima_alteracao?'instrutor':r.hasOc?'base':''};
+const ckDate=r=>{const f=ckFonte(r);return f==='instrutor'?new Date(ckOf(r).data_ultima_alteracao):f==='base'?(SOURCE.updated||null):null};
+const ckPor=r=>ckFonte(r)==='instrutor'?(ckOf(r).atualizado_por||''):ckFonte(r)==='base'?'Atualização da base':'';
+const cell=(r,k)=>{if(k==='ck_data'){const d=ckDate(r);return d?fDT(d)+(ckFonte(r)==='base'?' · base':''):''}if(k.startsWith('ck_'))return ckVal(r,k.slice(3))?'Sim':'Não';
   const v=r[k];if(k==='desl')return v?fD(v):(isBlank(r.deslRaw)?'':String(r.deslRaw));if(v instanceof Date)return k==='criadaEm'?fDT(v):fD(v);return v??''};
 const stTxt=r=>[r.just,r.hasOc?'Ocorrência':'',r.acomp==='Verificar'?'Verificar atendimento':r.hasOc?'Atendimento registrado':'',INS()?(ckStarted(r)?'Em acompanhamento':'Não acompanhada'):''].filter(Boolean).join(' ');
 const sortVal=(r,k)=>k==='_st'?stTxt(r):k==='ck_data'?ckDate(r):k.startsWith('ck_')?cell(r,k):r[k];
@@ -708,6 +713,7 @@ function buildTableHead(){
   $('#det').querySelectorAll('[data-cf]').forEach(i=>i.addEventListener('input',()=>{colF[i.dataset.cf]=i.value;page=0;renderTable()}));
 }
 const ckCell=(r,f)=>{const on=ckVal(r,f),lab=CKF.find(x=>x[0]===f)[1];
+  if(ckBase(r,f)&&r.idFalta)return `<td class="ck" title="Ocorrência já registrada na base (DATAOCORRENCIA/GRUPO/TIPO)"><label class="tg"><input type="checkbox" checked disabled aria-label="${esc(lab)} — registrada na base"><span>Sim · base</span></label></td>`;
   return r.idFalta?`<td class="ck"><label class="tg"><input type="checkbox" data-ck="${f}" data-id="${esc(r.idFalta)}"${on?' checked':''} aria-label="${esc(lab)} — ${esc(r.nome)} em ${esc(cell(r,'dataFalta'))}"><span>${on?'Sim':'Não'}</span></label></td>`:`<td class="ck" title="Falta sem identificador">—</td>`};
 function renderTable(){
   const ins=INS(),C=cols();
@@ -717,7 +723,7 @@ function renderTable(){
   const jb=r=>r.just==='Justificada'?'<span class="badge b-j">✓ Justificada</span>':r.just==='Não justificada'?'<span class="badge b-n">✕ Não justificada</span>':'<span class="badge b-i">? Não informado</span>';
   $('#det tbody').innerHTML=sl.length?sl.map(r=>{const na=ins&&!ckStarted(r);
     return `<tr class="${r.just==='Justificada'?'rj':r.just==='Não justificada'?'rn':'ri'}${na?' na':''}"><td>${na?'<span class="badge b-w" title="Nenhum item do checklist marcado">Não acompanhada</span> ':''}${r.hasOc?'<span class="badge b-o">Ocorrência</span> ':''}${r.acomp==='Verificar'?'<span class="badge b-w" title="Ocorrência sem ATENDIMENTO_RESPONSAVEL">Verificar</span>':r.hasOc?'<span class="badge b-ok" title="Atendimento registrado">Atendimento</span>':''}</td>`+
-    C.slice(1).map(([k])=>k==='just'?`<td>${jb(r)}</td>`:k==='ck_data'?`<td title="${esc(ckOf(r)?.atualizado_por?'por '+ckOf(r).atualizado_por:'')}">${esc(cell(r,k))||'<span style="color:var(--mut)">—</span>'}</td>`:k.startsWith('ck_')?ckCell(r,k.slice(3)):`<td${k==='obs'?' class="obs"':''} title="${esc(cell(r,k))}">${esc(cell(r,k))}</td>`).join('')+'</tr>'}).join(''):`<tr><td colspan="${C.length}" class="empty">Nenhum registro encontrado.</td></tr>`;
+    C.slice(1).map(([k])=>k==='just'?`<td>${jb(r)}</td>`:k==='ck_data'?`<td title="${esc(ckPor(r)?'por '+ckPor(r):'')}">${esc(cell(r,k))||'<span style="color:var(--mut)">—</span>'}</td>`:k.startsWith('ck_')?ckCell(r,k.slice(3)):`<td${k==='obs'?' class="obs"':''} title="${esc(cell(r,k))}">${esc(cell(r,k))}</td>`).join('')+'</tr>'}).join(''):`<tr><td colspan="${C.length}" class="empty">Nenhum registro encontrado.</td></tr>`;
   $('#pInfo').textContent=rows.length?`${nf.format(page*PS+1)}–${nf.format(Math.min(rows.length,page*PS+PS))} de ${nf.format(rows.length)} registros · página ${page+1} de ${pages}`:'0 registros';
   $('#pPrev').disabled=page===0;$('#pNext').disabled=page>=pages-1;
   $('#scopeChip').classList.toggle('on',!!scope);$('#scopeTxt').textContent=scope?'Recorte: '+SCOPES[scope][0]:'';
@@ -773,7 +779,7 @@ async function exportXlsx(){
   if(typeof XLSX==='undefined'){toast('Biblioteca de Excel indisponível.');return}
   const rows=tableRows();if(!rows.length){toast('Nada para exportar.');return}
   const ins=INS();
-  const out=rows.map(r=>{const o={};cols().slice(1).forEach(([k,l])=>{o[l]=cell(r,k)});if(ins)o['ALTERADO POR']=ckOf(r)?.atualizado_por||'';o['Possui ocorrência']=r.hasOc?'Sim':'Não';o['Acompanhamento']=r.acomp==='Verificar'?'Sem atendimento registrado':r.acomp;if(ins)o['Situação do checklist']=ckStarted(r)?'Em acompanhamento':'Não acompanhada';return o});
+  const out=rows.map(r=>{const o={};cols().slice(1).forEach(([k,l])=>{o[l]=cell(r,k)});if(ins)o['ALTERADO POR']=ckPor(r);o['Possui ocorrência']=r.hasOc?'Sim':'Não';o['Acompanhamento']=r.acomp==='Verificar'?'Sem atendimento registrado':r.acomp;if(ins)o['Situação do checklist']=ckStarted(r)?'Em acompanhamento':'Não acompanhada';return o});
   const ws=XLSX.utils.json_to_sheet(out);ws['!cols']=Object.keys(out[0]).map(k=>({wch:Math.min(40,Math.max(10,k.length+2))}));
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Faltas');
   const buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});
