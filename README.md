@@ -11,6 +11,14 @@ Os dados ficam no **Supabase** e só usuários autorizados entram no painel.
   - **Instrutor** – vê uma visão individual e simplificada, só com as próprias faltas, e preenche o checklist de acompanhamento de cada falta.
   - **Administrador** – visualiza e, no menu do perfil (canto superior), também tem **Publicar nova base** e **Gerenciar acessos**. Essas opções não aparecem para instrutores.
 - **Visão individual do instrutor:** só as faltas em que o campo `Criada por` é igual ao usuário do instrutor (ex.: `guilherme.bezerra` = `GUILHERME.BEZERRA`, sem diferença de maiúsculas/minúsculas). O filtro é aplicado no banco (RLS), não só na tela. Pódio, rankings, distribuição e comparativo entre instrutores não aparecem nessa visão.
+- **Visão do instrutor, feita para o dia a dia:**
+  - quadro **"O que fazer agora"** com as faltas pendentes e o botão **Ver pendentes**;
+  - situação única por falta (**Pendente → Em andamento → Concluída**) com o progresso das 4 etapas;
+  - tabela enxuta com nomes em português, **Detalhes** por falta (empresa, observações, todas as ocorrências) e cartões no celular;
+  - botão **✉ E-mail** com mensagem pronta para o jovem, que marca "E-mail enviado" sozinho;
+  - filtros de Período, Turma, Módulo e Situação, com atalhos **Pendentes / Esta semana / Este mês**;
+  - posição resumida no ranking ("Você está em Xº de N"), com o ranking completo sob demanda;
+  - indicadores, ocorrências e gráficos recolhidos em **Análises**; guia **Como usar** no primeiro acesso.
 - **Checklist de acompanhamento** (só instrutor): na tabela de detalhamento, cada falta tem os campos E-mail enviado, Resposta recebida, Falta justificada e Ocorrência lançada, salvos automaticamente a cada clique, com data/hora e responsável da última alteração. No topo, indicadores do checklist e das faltas ainda sem acompanhamento.
 - **Filtros** por período, instrutor, estado, empresa, turma, módulo, justificativa e ocorrências.
 - **Exportação** dos dados filtrados para Excel.

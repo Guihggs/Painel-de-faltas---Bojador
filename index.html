@@ -216,9 +216,9 @@ footer{color:var(--mut);font-size:12.5px;padding:24px 0 40px}
 body.ins .so-admin{display:none!important}
 body.ins main.wrap{display:flex;flex-direction:column}
 body.ins main>#checklist{order:1}body.ins main>#podio{order:2}body.ins main>#detalhe{order:3}body.ins main>#visao{order:4}
-body.ins main>#ocorrencias{order:5}body.ins main>#analises{order:6}body.ins main>#qualidade{order:7}body.ins main>footer{order:8}
+body.ins main>#insAnalises{order:5}body.ins main>#qualidade{order:7}body.ins main>footer{order:8}
 body.ins nav.sec a[href="#checklist"]{order:1}body.ins nav.sec a[href="#podio"]{order:2}body.ins nav.sec a[href="#detalhe"]{order:3}body.ins nav.sec a[href="#visao"]{order:4}
-body.ins nav.sec a[href="#ocorrencias"]{order:5}body.ins nav.sec a[href="#analises"]{order:6}body.ins nav.sec a[href="#qualidade"]{order:7}
+body.ins nav.sec a[href="#ocorrencias"]{order:5}body.ins nav.sec a[href="#analises"]{order:6}body.ins nav.sec a[href="#qualidade"]{order:7}body.ins nav.sec a[href="#insAnalises"]{order:5}
 .rank tr.eu td{background:color-mix(in srgb,var(--amarelo) 16%,transparent);font-weight:700}
 body.ins .rank tr.clk{cursor:default}body.ins .step{cursor:default}
 body:not(.ins) .so-ins{display:none!important}
@@ -232,6 +232,56 @@ table.det td.ck{text-align:left}
 table.det tr.na td{background:color-mix(in srgb,var(--amarelo) 9%,transparent)}
 table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
 .ckmsg{font-size:13px;color:var(--mut);margin:8px 0 0}
+/* ===== visão do instrutor: experiência simplificada ===== */
+.hero{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--line);border-left:6px solid var(--warn);border-radius:16px;padding:18px 20px;margin:0 0 14px}
+.hero.ok{border-left-color:var(--ok)}
+.hero h3{margin:0;font-size:clamp(20px,2.4vw,26px);line-height:1.2}
+.hero p{margin:4px 0 0;color:var(--mut);font-size:14px}
+.hero .acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.howto{background:color-mix(in srgb,var(--azul) 8%,var(--panel));border:1px solid color-mix(in srgb,var(--azul) 30%,var(--line));border-radius:16px;padding:16px 18px;margin:0 0 14px}
+.howto h3{margin:0 0 8px;font-size:17px}
+.howto ol{margin:0 0 10px;padding-left:20px;display:grid;gap:6px;font-size:14px}
+.stp{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;white-space:nowrap}
+.stp.pend{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+.stp.and{background:color-mix(in srgb,var(--amarelo) 22%,transparent);color:var(--oc-ink)}
+.stp.conc{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.prog{display:inline-flex;gap:2px;vertical-align:middle;margin-left:6px}.prog i{width:9px;height:6px;border-radius:2px;background:var(--line)}.prog i.on{background:var(--ok)}
+.btn.mini{height:30px;font-size:12.5px;padding:0 10px}
+.btn.mini[disabled]{opacity:.45;cursor:not-allowed}
+td.jv b{display:block;font-weight:700;white-space:normal;min-width:160px}td.jv small{color:var(--mut);font-size:11.5px}
+td.ocs{white-space:normal!important;min-width:150px}
+tr.dx td{background:var(--bg)!important;white-space:normal;max-width:none}
+.dxg{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:8px 18px;font-size:13px;padding:6px 4px}
+.dxg b{display:block;font-size:11.5px;color:var(--mut);font-weight:600}
+.dxo{margin:8px 0 2px;font-size:13px}.dxo table{border-collapse:collapse;width:100%}.dxo th,.dxo td{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left;font-size:12.5px;white-space:normal}
+.qk{display:inline-flex;gap:6px;flex-wrap:wrap;margin-right:6px}
+.qk button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:600}
+.qk button[aria-pressed=true]{background:var(--brand-2);border-color:var(--brand-2);color:#fff}
+.rkres{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px;margin:0 0 10px}
+.rkres .ac b{font-size:28px}
+details.anl{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:0 18px;margin:28px 0 8px}
+details.anl>summary{cursor:pointer;list-style:none;padding:16px 0;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+details.anl>summary::-webkit-details-marker{display:none}
+details.anl>summary h2{margin:0}details.anl>summary span{color:var(--mut);font-size:14px}
+details.anl>summary::after{content:"Mostrar ▾";margin-left:auto;color:var(--brand-2);font-weight:700;font-size:14px}
+details.anl[open]>summary::after{content:"Ocultar ▴"}
+details.anl section{padding-top:8px}
+body.ins:not(.rk-open) #podwrap,body.ins:not(.rk-open) #rkNota{display:none}
+body.ins table.det th[data-k=nome],body.ins table.det td.jv{position:sticky;left:0;z-index:1;background:var(--panel);box-shadow:1px 0 0 var(--line)}
+body.ins table.det thead th[data-k=nome]{z-index:4;background:var(--soft)}
+body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
+@media(max-width:700px){
+ body.ins table.det thead{display:none}
+ body.ins table.det,body.ins table.det tbody,body.ins table.det tr,body.ins table.det td{display:block;width:100%}
+ body.ins table.det{min-width:0}
+ body.ins .tscroll{max-height:none;overflow:visible;border:0}
+ body.ins table.det tbody tr:not(.dx){border:1px solid var(--line);border-radius:14px;margin:0 0 10px;padding:8px 6px;background:var(--panel)}
+ body.ins table.det td{border:0;padding:5px 8px;white-space:normal;max-width:none;display:flex;justify-content:space-between;align-items:center;gap:10px;position:static;box-shadow:none}
+ body.ins table.det td[data-label]::before{content:attr(data-label);font-weight:600;color:var(--mut);font-size:12px;text-align:left}
+ body.ins table.det td.jv{display:block;font-size:15px}
+ body.ins table.det tr.dx{margin:-12px 0 10px}
+ body.ins table.det tr.rj td:first-child,body.ins table.det tr.rn td:first-child,body.ins table.det tr.ri td:first-child{box-shadow:none}
+}
 .lote{border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:8px 0 4px;background:var(--bg)}
 .lote summary{cursor:pointer;font-weight:700;font-size:14px}
 .lote table.det input[type=text]{height:30px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);padding:0 6px;font-size:13px;width:170px}
@@ -267,7 +317,7 @@ table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
    </div>
   </div>
   <nav class="sec" aria-label="Seções">
-   <a href="#checklist" class="so-ins">Acompanhamento</a><a href="#visao"><span class="so-admin">Visão geral</span><span class="so-ins">Meus indicadores</span></a><a href="#podio">Pódio</a><a href="#ocorrencias">Ocorrências</a><a href="#analises"><span class="so-admin">Análises</span><span class="so-ins">Meus gráficos</span></a><a href="#detalhe">Detalhamento</a><a href="#qualidade">Qualidade da base</a>
+   <a href="#checklist" class="so-ins">O que fazer</a><a href="#visao" class="so-admin">Visão geral</a><a href="#podio"><span class="so-admin">Pódio</span><span class="so-ins">Ranking</span></a><a href="#ocorrencias" class="so-admin">Ocorrências</a><a href="#analises" class="so-admin">Análises</a><a href="#detalhe"><span class="so-admin">Detalhamento</span><span class="so-ins">Minhas faltas</span></a><a href="#insAnalises" class="so-ins" id="navAnl">Análises</a><a href="#qualidade" class="so-admin">Qualidade da base</a>
   </nav>
  </div>
 </header>
@@ -282,8 +332,17 @@ table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
 
 <main class="wrap">
  <section id="checklist" class="so-ins">
-  <h2>Acompanhamento das minhas faltas</h2>
-  <p class="lead">Resumo do checklist que você preenche no detalhamento (final da página). Considera apenas as suas faltas e os filtros aplicados. Clique em um card para abrir os registros correspondentes.</p>
+  <div class="howto" id="howto" hidden>
+   <h3>Como usar o painel (3 passos)</h3>
+   <ol>
+    <li><b>Veja suas pendentes</b> no quadro abaixo e clique em <b>Ver pendentes</b>. Aparecem só as faltas registradas por você.</li>
+    <li><b>Acompanhe cada falta</b> em ordem: <b>E-mail enviado → Resposta recebida → Falta justificada → Ocorrência lançada</b>. O botão <b>✉ E-mail</b> já abre a mensagem pronta para o jovem e marca a primeira etapa.</li>
+    <li><b>Não precisa salvar:</b> cada marcação é gravada na hora, com data e hora. Quando a ocorrência é lançada, a falta fica <b>Concluída</b>.</li>
+   </ol>
+   <button class="btn pri" type="button" id="howtoOk">Entendi</button>
+  </div>
+  <div class="hero" id="ckHero"></div>
+  <h2 style="font-size:18px">Andamento das etapas</h2>
   <div class="kpis" id="ckkpis"></div>
   <p class="ckmsg" id="ckMsg" hidden></p>
  </section>
@@ -295,9 +354,12 @@ table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
  </section>
 
  <section id="podio">
-  <h2>Pódio dos instrutores</h2>
-  <p class="lead">Classificação pelas faltas registradas sob responsabilidade de cada instrutor (campo “Criada por”), apenas para quem tem registros no período. Empates recebem a mesma posição.<span class="so-ins"> Mostra apenas os totais de cada instrutor (considera o período escolhido nos filtros; os demais filtros valem só para os seus registros). Sua linha fica destacada.</span></p>
-  <div class="podwrap">
+  <h2><span class="so-admin">Pódio dos instrutores</span><span class="so-ins">Sua posição no ranking</span></h2>
+  <div class="rkres so-ins" id="rkResumo"></div>
+  <button class="linkbtn so-ins" type="button" id="rkToggle" style="margin:0 0 8px">Ver ranking completo ▾</button>
+  <p class="lead so-admin">Classificação pelas faltas registradas sob responsabilidade de cada instrutor (campo “Criada por”), apenas para quem tem registros no período. Empates recebem a mesma posição.</p>
+  <p class="note so-ins" id="rkNota" style="margin:0 0 10px">O ranking mostra só os totais de cada instrutor e considera o período escolhido nos filtros. Menos faltas não significa, por si só, melhor desempenho: depende do tamanho e do perfil das turmas.</p>
+  <div class="podwrap" id="podwrap">
    <div class="panel">
     <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center">
      <h3>Ranking 1 · Menor número de faltas <span class="tip" tabindex="0" data-tip="“Por turma” divide as faltas pelo número de turmas distintas do instrutor no período, para comparar quem atende volumes diferentes.">i</span></h3>
@@ -318,7 +380,8 @@ table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
 
  <section id="ocorrencias">
   <h2>Acompanhamento das ocorrências<span class="so-ins"> — minhas faltas</span></h2>
-  <p class="lead">O indicador considera o preenchimento de DATAOCORRENCIA, GRUPO_OCORRENCIA, TIPO_OCORRENCIA e ATENDIMENTO_RESPONSAVEL. Registros sem atendimento indicado são sinalizados para verificação — não são classificados como pendentes, pois a regra de pendência não está definida.</p>
+  <p class="lead so-ins">Cada falta pode ter mais de uma ocorrência. Os números abaixo contam cada ocorrência registrada nas suas faltas.</p>
+  <p class="lead so-admin">O indicador considera o preenchimento de DATAOCORRENCIA, GRUPO_OCORRENCIA, TIPO_OCORRENCIA e ATENDIMENTO_RESPONSAVEL. Registros sem atendimento indicado são sinalizados para verificação — não são classificados como pendentes, pois a regra de pendência não está definida.</p>
   <div class="grid g2">
    <div class="panel"><h3>Indicador de acompanhamento</h3><div class="acomp" id="acomp"></div><div class="fieldfill" id="fieldfill"></div></div>
    <div class="panel"><h3>Evolução mensal das ocorrências</h3><div class="fig"><canvas id="cOcMes"></canvas></div></div>
@@ -347,9 +410,9 @@ table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
  </section>
 
  <section id="detalhe">
-  <h2>Detalhamento individual</h2>
+  <h2><span class="so-admin">Detalhamento individual</span><span class="so-ins">Minhas faltas</span></h2>
   <p class="lead so-admin">Selecione um instrutor para ver somente os registros dele. A tabela também segue os filtros gerais e as seleções feitas nos rankings e gráficos.</p>
-  <p class="lead so-ins">Somente as faltas registradas por você. Marque o andamento de cada falta nas colunas de acompanhamento — cada alteração é salva automaticamente, com data, horário e responsável. Faltas que já têm ocorrência registrada na base contam como acompanhadas (“Ocorrência lançada” = Sim · base) e mostram a data da atualização da base; quando você altera algo, vale a data da sua alteração. Linhas destacadas em amarelo ainda não têm acompanhamento iniciado.</p>
+  <p class="lead so-ins">Marque cada etapa quando concluir — salva na hora. <b>✉ E-mail</b> abre a mensagem pronta para o jovem e marca “E-mail enviado”. <b>Detalhes</b> mostra empresa, observações e todas as ocorrências. Faltas com ocorrência já registrada na base aparecem como “Ocorrência lançada · base”.</p>
   <div class="panel">
    <div class="tbar">
     <select id="tInstr" class="so-admin" aria-label="Instrutor"></select>
@@ -357,13 +420,16 @@ table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
     <span class="chip scope" id="scopeChip"><span id="scopeTxt"></span><button id="scopeClr" aria-label="Remover recorte">×</button></span>
     <button class="btn pri" id="btnXlsx">Exportar Excel</button>
    </div>
-   <div class="legend"><span><i style="background:var(--just)"></i>Justificada</span><span><i style="background:var(--nj)"></i>Não justificada</span><span><i style="background:var(--ni)"></i>Justificativa não informada</span><span><span class="badge b-o">Ocorrência</span></span><span><span class="badge b-ok">Atendimento registrado</span></span><span><span class="badge b-w">Verificar atendimento</span></span><span class="so-ins"><span class="badge b-w">Não acompanhada</span></span></div>
+   <div class="legend so-ins"><span><span class="stp pend">Pendente</span> nenhuma etapa feita</span><span><span class="stp and">Em andamento</span> já começou</span><span><span class="stp conc">Concluída</span> ocorrência lançada</span></div>
+   <div class="legend so-admin"><span><i style="background:var(--just)"></i>Justificada</span><span><i style="background:var(--nj)"></i>Não justificada</span><span><i style="background:var(--ni)"></i>Justificativa não informada</span><span><span class="badge b-o">Ocorrência</span></span><span><span class="badge b-ok">Atendimento registrado</span></span><span><span class="badge b-w">Verificar atendimento</span></span></div>
    <div class="tscroll"><table class="det" id="det"></table></div>
    <div class="pager"><span id="pInfo"></span><div><button id="pPrev" aria-label="Página anterior">‹</button><button id="pNext" aria-label="Próxima página">›</button></div></div>
   </div>
  </section>
 
- <section id="qualidade">
+ <details class="anl so-ins" id="insAnalises"><summary><h2>Análises</h2><span>Seus indicadores, ocorrências e gráficos</span></summary><div id="anlBody"></div></details>
+
+ <section id="qualidade" class="so-admin">
   <h2>Qualidade e regras da base</h2>
   <div class="panel" id="dq"></div>
  </section>
@@ -467,7 +533,7 @@ let r1mode='abs',scope='',sortK='dataFalta',sortD=-1,page=0;const PS=25;const co
 const charts={};
 /* visão individual do instrutor */
 const INS=()=>papel==='instrutor';
-const fkeys=()=>INS()?FKEYS.filter(([k])=>k!=='instr'):FKEYS;
+const fkeys=()=>INS()?FKEYS.filter(([k])=>k==='turma'||k==='modulo'):FKEYS;
 let MEU_NOME='',MEU_USUARIO='';
 /* chaves que identificam o instrutor no campo "Criada por": usuário (ex.: guilherme.bezerra) e nome — mesma regra do banco */
 const minhasChaves=()=>[MEU_USUARIO,MEU_NOME].map(normNome).filter(Boolean);
@@ -478,6 +544,12 @@ const ckOf=r=>CK.get(r.idFalta);
 const ckBase=(r,f)=>f==='ocorrencia_lancada'&&!!r.hasOc;
 const ckVal=(r,f)=>!!(ckOf(r)||{})[f]||ckBase(r,f);
 const ckStarted=r=>CKF.some(([f])=>ckVal(r,f));
+/* situação única da falta (visão do instrutor): Pendente → Em andamento → Concluída (ocorrência lançada) */
+const ckN=r=>CKF.filter(([f])=>ckVal(r,f)).length;
+const stIns=r=>ckVal(r,'ocorrencia_lancada')?'Concluída':ckStarted(r)?'Em andamento':'Pendente';
+const ST_ORD={'Pendente':0,'Em andamento':1,'Concluída':2};
+const ST_CL={'Pendente':'pend','Em andamento':'and','Concluída':'conc'};
+const rkey=r=>r.idFalta||[r.ra,r.turma,iso(r.dataFalta),r.modulo].join('|');
 
 /* ---------- preparação dos dados ---------- */
 function prepare(rows){
@@ -565,8 +637,9 @@ function buildFilters(){
   const opts=k=>[...new Set(DATA.flatMap(r=>OCK.has(k)?ocVals(r,k):[k==='just'?r.just:(r[k]||'(vazio)')]))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true}));
   let h=`<label>De<input type="date" id="f_de" value="${esc(F.de)}"></label><label>Até<input type="date" id="f_ate" value="${esc(F.ate)}"></label>`;
   for(const[k,l]of fkeys())h+=`<label>${esc(l)}<select id="f_${k}"><option value="">Todos</option>${opts(k).map(o=>`<option${o===F[k]?' selected':''}>${esc(o)}</option>`).join('')}</select></label>`;
+  if(INS())h+=`<label>Situação<select id="f_st"><option value="">Todas</option><option value="st_pend">Pendente</option><option value="st_and">Em andamento</option><option value="st_conc">Concluída</option></select></label>`;
   $('#fgrid').innerHTML=h;
-  $('#fgrid').querySelectorAll('select,input').forEach(el=>el.addEventListener('change',()=>{F[el.id.slice(2)]=el.value;page=0;render()}));
+  $('#fgrid').querySelectorAll('select,input').forEach(el=>el.addEventListener('change',()=>{if(el.id==='f_st'){scope=el.value;page=0;renderTable();return}F[el.id.slice(2)]=el.value;page=0;render()}));
   const ti=$('#tInstr');ti.innerHTML=`<option value="">Todos os instrutores</option>`+opts('instr').map(o=>`<option>${esc(o)}</option>`).join('');
 }
 function syncFilters(){
@@ -574,8 +647,12 @@ function syncFilters(){
   $('#tInstr').value=F.instr;
   const lab=Object.fromEntries(FKEYS);lab.de='De';lab.ate='Até';
   const act=Object.keys(F).filter(k=>F[k]);
-  $('#fbar').innerHTML=act.length?act.map(k=>`<span class="chip">${esc(lab[k])}: <b>${esc(k==='de'||k==='ate'?fD(parseDate(F[k])):F[k])}</b><button data-k="${k}" aria-label="Remover filtro">×</button></span>`).join('')+`<button class="linkbtn" id="fclr">Limpar filtros</button>`:`<span style="font-size:13px;color:var(--mut)">Nenhum filtro aplicado.</span>`;
+  const qk=INS()?`<span class="qk"><button type="button" data-q="pend" aria-pressed="${scope==='st_pend'}">Pendentes</button><button type="button" data-q="semana" aria-pressed="${qkPer()==='semana'}">Esta semana</button><button type="button" data-q="mes" aria-pressed="${qkPer()==='mes'}">Este mês</button></span>`:'';
+  $('#fbar').innerHTML=qk+(act.length?act.map(k=>`<span class="chip">${esc(lab[k])}: <b>${esc(k==='de'||k==='ate'?fD(parseDate(F[k])):F[k])}</b><button data-k="${k}" aria-label="Remover filtro">×</button></span>`).join('')+`<button class="linkbtn" id="fclr">Limpar filtros</button>`:`<span style="font-size:13px;color:var(--mut)">Nenhum filtro aplicado.</span>`);
 }
+/* atalhos de período (visão do instrutor) */
+const periodo=q=>{const h=new Date();h.setHours(0,0,0,0);let a=new Date(h);if(q==='semana'){const d=(h.getDay()+6)%7;a.setDate(h.getDate()-d)}else a=new Date(h.getFullYear(),h.getMonth(),1);return{de:iso(a),ate:iso(h)}};
+const qkPer=()=>{for(const q of['semana','mes']){const p=periodo(q);if(F.de===p.de&&F.ate===p.ate)return q}return''};
 function setF(k,v){F[k]=F[k]===v?'':v;page=0;render();toast(F[k]?`Filtro aplicado: ${v}`:'Filtro removido')}
 function selInstr(n,go){F.instr=n;page=0;render();if(go)document.getElementById('detalhe').scrollIntoView()}
 
@@ -637,7 +714,11 @@ function renderRanks(rows,pre){
   $('#r2').innerHTML=r2.length?`<thead><tr><th>Pos.</th><th>Instrutor</th><th style="text-align:right">% justificadas</th><th style="text-align:right">Justificadas</th></tr></thead><tbody>`+r2.map(x=>`<tr class="clk${eu(x)}" data-n="${esc(x.n)}"><td><span class="pos${pc(x.pos)}">${x.pos}º</span></td><td>${esc(x.n)}</td><td class="n"><b>${pf(x.j/x.tot)}</b> <span class="meter" style="display:inline-flex;width:50px;vertical-align:middle"><i style="width:${x.j/x.tot*100}%;background:var(--just)"></i></span></td><td class="n">${nf.format(x.j)} <small style="color:var(--mut)">de ${nf.format(x.tot)}</small></td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="empty">Nenhuma falta justificada no período.</td></tr></tbody>';
   const r3=rankCompetition(st.filter(x=>x.oc>0),x=>x.oc,false);
   $('#r3').innerHTML=r3.length?`<thead><tr><th>Pos.</th><th>Instrutor</th><th style="text-align:right">Ocorrências</th><th>Grupo predominante</th><th>Tipo mais recorrente</th><th style="text-align:right">Com atendimento</th></tr></thead><tbody>`+r3.map(x=>`<tr class="clk${eu(x)}" data-n="${esc(x.n)}"><td><span class="pos${pc(x.pos)}">${x.pos}º</span></td><td>${esc(x.n)}</td><td class="n">${nf.format(x.oc)} <small style="color:var(--mut)">em ${nf.format(x.ocF??x.oc)} falta(s)</small></td><td>${esc(x.g?x.g.k:'—')}</td><td>${esc(x.t?x.t.k:'—')}</td><td class="n">${nf.format(x.ocAt)} <small style="color:var(--mut)">de ${nf.format(x.oc)}</small></td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="empty">Nenhuma ocorrência no período.</td></tr></tbody>';
-  if(ins)return;/* instrutor: ranking só informativo (não abre registros de outros) */
+  if(ins){/* instrutor: resumo da própria posição; tabelas completas ficam em "Ver ranking completo" */
+    const mine=l=>l.find(x=>me.has(normNome(x.k||x.n)));const a=mine(r1),b=mine(r2),c=mine(r3);
+    const box=(t,x,n,det)=>`<div class="ac"><span>${t}</span><b>${x?x.pos+'º':'—'}</b><span>${x?`de ${nf.format(n)} instrutores · ${det(x)}`:'sem registros no período'}</span></div>`;
+    $('#rkResumo').innerHTML=box(r1mode==='abs'?'Menos faltas':r1mode==='turma'?'Menos faltas por turma':'Menos faltas por jovem',a,r1.length,x=>esc(fmt(x)))+box('Maior % de faltas justificadas',b,r2.length,x=>`${pf(x.j/x.tot)} justificadas`)+box('Mais ocorrências registradas',c,r3.length,x=>`${nf.format(x.oc)} ocorrência(s)`);
+    return}
   document.querySelectorAll('#podium .step,#r1 tr.clk,#r2 tr.clk,#r3 tr.clk').forEach(el=>el.addEventListener('click',()=>{selInstr(el.dataset.n,true);toast(`Registros de ${el.dataset.n}`)}));
 }
 
@@ -664,7 +745,7 @@ function renderOc(rows){
   $('#acomp').innerHTML=[['oc',n,`Ocorrências registradas · em ${nf.format(nf1)} falta(s)`,'var(--oc-ink)'],['atend',oc.filter(o=>o.atend).length,'Com responsável pelo atendimento','var(--ok)'],['comp',c.Completo,'Registro completo (4 campos)','var(--ok)'],['verif',c.Verificar,'Sem atendimento registrado — verificar','var(--warn)']]
     .map(([s,v,l,col])=>`<button class="ac" data-s="${s}"><b style="color:${col}">${nf.format(v)}</b><span>${l}${n&&s!=='oc'?` · ${pf(v/n)}`:''}</span></button>`).join('');
   $('#acomp').querySelectorAll('.ac').forEach(b=>b.addEventListener('click',()=>{scope=b.dataset.s;page=0;renderTable();document.getElementById('detalhe').scrollIntoView()}));
-  const fields=[['DATAOCORRENCIA',o=>o.dataOc],['GRUPO_OCORRENCIA',o=>o.grupo],['TIPO_OCORRENCIA',o=>o.tipo],['ATENDIMENTO_RESPONSAVEL',o=>o.atend]];
+  const fields=INS()?[['Data da ocorrência',o=>o.dataOc],['Grupo',o=>o.grupo],['Tipo',o=>o.tipo],['Responsável pelo atendimento',o=>o.atend]]:[['DATAOCORRENCIA',o=>o.dataOc],['GRUPO_OCORRENCIA',o=>o.grupo],['TIPO_OCORRENCIA',o=>o.tipo],['ATENDIMENTO_RESPONSAVEL',o=>o.atend]];
   $('#fieldfill').innerHTML=`<div style="font-size:12.5px;color:var(--mut);font-weight:600">Preenchimento dos campos nas ocorrências</div>`+fields.map(([l,f])=>{const v=oc.filter(f).length;return`<div class="bar" style="cursor:default"><span class="k" style="font-size:12px">${l}</span><span class="t"><i style="width:${n?v/n*100:0}%;background:var(--brand-2)"></i></span><span class="v">${pf(n?v/n:NaN)}</span></div>`}).join('');
   bars('bGrupo',countBy(oc,o=>o.grupo||'(não informado)'),'grupo',{color:'var(--oc)',total:n});
   bars('bTipo',countBy(oc,o=>o.tipo||'(não informado)'),'tipo',{color:'var(--oc)',total:n});
@@ -719,26 +800,28 @@ function renderCharts(rows){
 /* ---------- tabela ---------- */
 const COLS=[['_st','Situação'],['ra','RA'],['nome','NOME'],['turma','CODTURMA'],['modulo','MODULO'],['just','JUSTIFICADA'],['instr','Criada por'],['dataFalta','DATA_FALTA'],['criadaEm','Criada em'],['email','EMAIL JOVEM'],['empresa','EMPRESA'],['estado','ESTADO'],['dataOc','DATAOCORRENCIA'],['grupo','GRUPO_OCORRENCIA'],['tipo','TIPO_OCORRENCIA'],['atend','ATENDIMENTO_RESPONSAVEL'],['obs','OBSERVACOES'],['desl','DATA DESLIGAMENTO'],['total','Total Geral']];
 /* visão do instrutor: colunas originais pedidas + colunas editáveis do checklist (logo após o nome do jovem) */
-const COLS_INS=[['_st','Situação'],['ra','RA'],['nome','NOME'],...CKF.map(([f,l])=>['ck_'+f,l]),['ck_data','ÚLTIMA ALTERAÇÃO'],['turma','CODTURMA'],['modulo','MODULO'],['just','JUSTIFICADA'],['instr','Criada por'],['dataFalta','DATA_FALTA'],['empresa','EMPRESA'],['estado','ESTADO'],['dataOc','DATAOCORRENCIA'],['grupo','GRUPO_OCORRENCIA'],['tipo','TIPO_OCORRENCIA'],['atend','ATENDIMENTO_RESPONSAVEL'],['obs','OBSERVACOES']];
+const COLS_INS=[['nome','Jovem'],['_st','Situação'],['dataFalta','Data da falta'],['turma','Turma'],['modulo','Módulo'],['just','Justificada'],['tipo','Ocorrências'],...CKF.map(([f,l])=>['ck_'+f,l.charAt(0)+l.slice(1).toLowerCase()]),['ck_data','Última alteração'],['_acoes','Ações']];
+/* Excel do instrutor: mantém os nomes técnicos das colunas da base */
+const EXP_INS=[['ra','RA'],['nome','NOME'],['turma','CODTURMA'],['modulo','MODULO'],['just','JUSTIFICADA'],['instr','Criada por'],['dataFalta','DATA_FALTA'],['email','EMAIL JOVEM'],['empresa','EMPRESA'],['estado','ESTADO'],['dataOc','DATAOCORRENCIA'],['grupo','GRUPO_OCORRENCIA'],['tipo','TIPO_OCORRENCIA'],['atend','ATENDIMENTO_RESPONSAVEL'],['obs','OBSERVACOES'],...CKF.map(([f,l])=>['ck_'+f,l]),['ck_data','ÚLTIMA ALTERAÇÃO']];
 const cols=()=>INS()?COLS_INS:COLS;
 const SCOPES={just:['Justificadas',r=>r.just==='Justificada'],nj:['Não justificadas',r=>r.just==='Não justificada'],oc:['Com ocorrência',r=>r.hasOc],atend:['Ocorrências com atendimento',r=>r.ocs.some(o=>o.atend)],comp:['Ocorrências completas',r=>r.ocs.some(o=>o.acomp==='Completo')],verif:['Ocorrências sem atendimento registrado',r=>r.ocs.some(o=>!o.atend)],
-  ck_none:['Sem acompanhamento iniciado',r=>!ckStarted(r)],...Object.fromEntries(CKF.map(([f,,l])=>['ck_'+f,[l,r=>ckVal(r,f)]]))};
+  ck_none:['Pendentes',r=>!ckStarted(r)],st_pend:['Pendentes',r=>stIns(r)==='Pendente'],st_and:['Em andamento',r=>stIns(r)==='Em andamento'],st_conc:['Concluídas',r=>stIns(r)==='Concluída'],...Object.fromEntries(CKF.map(([f,,l])=>['ck_'+f,[l,r=>ckVal(r,f)]]))};
 /* última alteração: a do instrutor (manual) ou, se o acompanhamento veio da base, a data da atualização da base */
 const ckFonte=r=>{const c=ckOf(r);return c&&c.data_ultima_alteracao?'instrutor':r.hasOc?'base':''};
 const ckDate=r=>{const f=ckFonte(r);return f==='instrutor'?new Date(ckOf(r).data_ultima_alteracao):f==='base'?(SOURCE.updated||null):null};
 const ckPor=r=>ckFonte(r)==='instrutor'?(ckOf(r).atualizado_por||''):ckFonte(r)==='base'?'Atualização da base':'';
-const cell=(r,k)=>{if(k==='ck_data'){const d=ckDate(r);return d?fDT(d)+(ckFonte(r)==='base'?' · base':''):''}if(k.startsWith('ck_'))return ckVal(r,k.slice(3))?'Sim':'Não';
+const cell=(r,k)=>{if(k==='_acoes')return'';if(k==='_st'&&INS())return stIns(r);if(k==='ck_data'){const d=ckDate(r);return d?fDT(d)+(ckFonte(r)==='base'?' · base':''):''}if(k.startsWith('ck_'))return ckVal(r,k.slice(3))?'Sim':'Não';
   if(k==='dataOc')return[...new Set(r.ocs.map(o=>o.dataOc?fD(o.dataOc):'').filter(Boolean))].join(' | ');
   const v=r[k];if(k==='desl')return v?fD(v):(isBlank(r.deslRaw)?'':String(r.deslRaw));if(v instanceof Date)return k==='criadaEm'?fDT(v):fD(v);return v??''};
 /* etiquetas da coluna Situação (usadas também no filtro com opções) */
-const stTags=r=>[r.just,r.hasOc?'Com ocorrência':'Sem ocorrência',r.nOc>1?'Mais de uma ocorrência':'',r.acomp==='Verificar'?'Verificar atendimento':r.hasOc?'Atendimento registrado':'',INS()?(ckStarted(r)?'Em acompanhamento':'Não acompanhada'):''].filter(Boolean);
+const stTags=r=>INS()?[stIns(r)]:[r.just,r.hasOc?'Com ocorrência':'Sem ocorrência',r.nOc>1?'Mais de uma ocorrência':'',r.acomp==='Verificar'?'Verificar atendimento':r.hasOc?'Atendimento registrado':'',INS()?(ckStarted(r)?'Em acompanhamento':'Não acompanhada'):''].filter(Boolean);
 const stTxt=r=>stTags(r).join(' ');
 /* colunas com filtro por lista de opções */
 const tipoVals=r=>r.ocs.length?[...new Set(r.ocs.map(o=>o.tipo||'(não informado)'))]:['(sem ocorrência)'];
 const SELF={_st:r=>stTags(r),modulo:r=>[r.modulo||'(vazio)'],just:r=>[r.just],tipo:tipoVals};
-const selOpts=k=>k.startsWith('ck_')?['Sim','Não']:k==='_st'?['Justificada','Não justificada','Não informado','Com ocorrência','Sem ocorrência','Mais de uma ocorrência','Atendimento registrado','Verificar atendimento',...(INS()?['Em acompanhamento','Não acompanhada']:[])]:[...new Set(DATA.flatMap(SELF[k]))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true}));
+const selOpts=k=>k.startsWith('ck_')?['Sim','Não']:k==='_st'&&INS()?['Pendente','Em andamento','Concluída']:k==='_st'?['Justificada','Não justificada','Não informado','Com ocorrência','Sem ocorrência','Mais de uma ocorrência','Atendimento registrado','Verificar atendimento',...(INS()?['Em acompanhamento','Não acompanhada']:[])]:[...new Set(DATA.flatMap(SELF[k]))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true}));
 const isSel=k=>!!SELF[k]||(k.startsWith('ck_')&&k!=='ck_data');
-const sortVal=(r,k)=>k==='_st'?stTxt(r):k==='ck_data'?ckDate(r):k.startsWith('ck_')?cell(r,k):r[k];
+const sortVal=(r,k)=>k==='_st'&&INS()?String(ST_ORD[stIns(r)]*10+ckN(r)):k==='_st'?stTxt(r):k==='ck_data'?ckDate(r):k.startsWith('ck_')?cell(r,k):r[k];
 function tableRows(){
   let rows=cur();if(scope&&SCOPES[scope])rows=rows.filter(SCOPES[scope][1]);
   const q=search.trim().toLowerCase();if(q)rows=rows.filter(r=>r.nome.toLowerCase().includes(q)||r.ra.toLowerCase().includes(q));
@@ -753,26 +836,45 @@ function tableRows(){
 }
 function buildTableHead(){
   for(const k in colF)delete colF[k];
-  const flt=([k,l])=>isSel(k)?`<th><select data-cf="${k}" aria-label="Filtrar ${esc(l)}"><option value="">Todos</option>${selOpts(k).map(o=>`<option>${esc(o)}</option>`).join('')}</select></th>`:`<th><input data-cf="${k}" placeholder="Filtrar" aria-label="Filtrar ${esc(l)}"></th>`;
-  $('#det').innerHTML=`<thead><tr>${cols().map(([k,l])=>`<th data-k="${k}"${k.startsWith('ck_')?' class="ckh"':''} title="Ordenar">${esc(l)} <span data-arrow></span></th>`).join('')}</tr><tr class="cf">${cols().map(flt).join('')}</tr></thead><tbody></tbody>`;
-  $('#det').querySelectorAll('tr:first-child th').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;if(sortK===k)sortD*=-1;else{sortK=k;sortD=(k==='dataFalta'||k==='criadaEm'||k==='dataOc'||k==='ck_data')?-1:1}renderTable()}));
+  const flt=([k,l])=>k==='_acoes'?'<th></th>':isSel(k)?`<th><select data-cf="${k}" aria-label="Filtrar ${esc(l)}"><option value="">Todos</option>${selOpts(k).map(o=>`<option>${esc(o)}</option>`).join('')}</select></th>`:`<th><input data-cf="${k}" placeholder="Filtrar" aria-label="Filtrar ${esc(l)}"></th>`;
+  $('#det').innerHTML=`<thead><tr>${cols().map(([k,l])=>`<th data-k="${k}"${k.startsWith('ck_')?' class="ckh"':''} ${k==='_acoes'?'':' title="Ordenar"'}>${esc(l)} <span data-arrow></span></th>`).join('')}</tr><tr class="cf">${cols().map(flt).join('')}</tr></thead><tbody></tbody>`;
+  $('#det').querySelectorAll('tr:first-child th').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;if(k==='_acoes')return;if(sortK===k)sortD*=-1;else{sortK=k;sortD=(k==='dataFalta'||k==='criadaEm'||k==='dataOc'||k==='ck_data')?-1:1}renderTable()}));
   $('#det').querySelectorAll('[data-cf]').forEach(i=>i.addEventListener(i.tagName==='SELECT'?'change':'input',()=>{colF[i.dataset.cf]=i.value;page=0;renderTable()}));
 }
 const ckCell=(r,f)=>{const on=ckVal(r,f),lab=CKF.find(x=>x[0]===f)[1];
   if(ckBase(r,f)&&r.idFalta)return `<td class="ck" title="Ocorrência já registrada na base (DATAOCORRENCIA/GRUPO/TIPO)"><label class="tg"><input type="checkbox" checked disabled aria-label="${esc(lab)} — registrada na base"><span>Sim · base</span></label></td>`;
   return r.idFalta?`<td class="ck"><label class="tg"><input type="checkbox" data-ck="${f}" data-id="${esc(r.idFalta)}"${on?' checked':''} aria-label="${esc(lab)} — ${esc(r.nome)} em ${esc(cell(r,'dataFalta'))}"><span>${on?'Sim':'Não'}</span></label></td>`:`<td class="ck" title="Falta sem identificador">—</td>`};
+const OPEN=new Set();/* faltas com "Detalhes" aberto */
+const jb=r=>r.just==='Justificada'?'<span class="badge b-j">✓ Justificada</span>':r.just==='Não justificada'?'<span class="badge b-n">✕ Não justificada</span>':'<span class="badge b-i">? Não informado</span>';
+function tdFor(r,k,lab,ins){
+  const dl=ins&&lab?` data-label="${esc(lab)}"`:'';
+  if(k==='_st'&&ins){const st=stIns(r),n=ckN(r);return`<td${dl}><span class="stp ${ST_CL[st]}">${st}</span><span class="prog" title="${n} de 4 etapas">${[0,1,2,3].map(i=>`<i class="${i<n?'on':''}"></i>`).join('')}</span></td>`}
+  if(k==='_st')return`<td>${r.hasOc?`<span class="badge b-o">${r.nOc>1?r.nOc+' ocorrências':'Ocorrência'}</span> `:''}${r.acomp==='Verificar'?'<span class="badge b-w" title="Ocorrência sem ATENDIMENTO_RESPONSAVEL">Verificar</span>':r.hasOc?'<span class="badge b-ok" title="Atendimento registrado">Atendimento</span>':''}</td>`;
+  if(k==='just')return`<td${dl}>${jb(r)}</td>`;
+  if(k==='ck_data')return`<td${dl} title="${esc(ckPor(r)?'por '+ckPor(r):'')}">${esc(cell(r,k))||'<span style="color:var(--mut)">—</span>'}</td>`;
+  if(k.startsWith('ck_'))return ckCell(r,k.slice(3)).replace('<td',`<td${dl}`);
+  if(ins&&k==='nome')return`<td class="jv"><b>${esc(r.nome)}</b><small>RA ${esc(r.ra)}</small></td>`;
+  if(ins&&k==='tipo')return`<td class="ocs"${dl}>${r.hasOc?`<span class="badge b-o">${r.nOc}</span> ${esc([...new Set(r.ocs.map(o=>o.tipo||o.grupo||'Ocorrência'))].join(', '))}`:'<span style="color:var(--mut)">Nenhuma</span>'}</td>`;
+  if(k==='_acoes'){const key=rkey(r),op=OPEN.has(key);
+    return`<td${dl}><span style="display:inline-flex;gap:6px;flex-wrap:wrap"><button class="btn mini" type="button" data-mail="${esc(key)}"${r.email?` title="Escrever para ${esc(r.email)}"`:' disabled title="Jovem sem e-mail na base"'}>✉ E-mail</button><button class="btn mini" type="button" data-det="${esc(key)}" aria-expanded="${op}">${op?'Fechar ▴':'Detalhes ▾'}</button></span></td>`}
+  return`<td${dl}${k==='obs'?' class="obs"':''} title="${esc(cell(r,k))}">${esc(cell(r,k))}</td>`;
+}
+function detalheFalta(r,ncol){
+  const it=(l,v)=>`<div><b>${l}</b>${esc(v)||'—'}</div>`;
+  const ocs=r.ocs.length?`<div class="dxo"><b>Ocorrências (${r.ocs.length})</b><table><thead><tr><th>Data</th><th>Grupo</th><th>Tipo</th><th>Responsável</th><th>Observações</th></tr></thead><tbody>${r.ocs.map(o=>`<tr><td>${o.dataOc?fD(o.dataOc):'—'}</td><td>${esc(o.grupo)||'—'}</td><td>${esc(o.tipo)||'—'}</td><td>${esc(o.atend)||'<span class="badge b-w">sem responsável</span>'}</td><td>${esc(o.obs)||'—'}</td></tr>`).join('')}</tbody></table></div>`:'<div class="dxo" style="color:var(--mut)">Nenhuma ocorrência registrada na base para esta falta.</div>';
+  return`<tr class="dx"><td colspan="${ncol}"><div class="dxg">${it('E-mail do jovem',r.email)}${it('Empresa',r.empresa)}${it('Estado',r.estado)}${it('Registrada por',r.instr)}${it('Registrada em',r.criadaEm?fDT(r.criadaEm):'')}${it('Última alteração do checklist',cell(r,'ck_data')+(ckPor(r)?' — '+ckPor(r):''))}</div>${ocs}</td></tr>`;
+}
 function renderTable(){
   const ins=INS(),C=cols();
   const rows=tableRows();const pages=Math.max(1,Math.ceil(rows.length/PS));if(page>=pages)page=pages-1;
   const sl=rows.slice(page*PS,page*PS+PS);
   $('#det').querySelectorAll('[data-arrow]').forEach(s=>{s.textContent=s.parentElement.dataset.k===sortK?(sortD>0?'▲':'▼'):''});
-  const jb=r=>r.just==='Justificada'?'<span class="badge b-j">✓ Justificada</span>':r.just==='Não justificada'?'<span class="badge b-n">✕ Não justificada</span>':'<span class="badge b-i">? Não informado</span>';
   $('#det tbody').innerHTML=sl.length?sl.map(r=>{const na=ins&&!ckStarted(r);
-    return `<tr class="${r.just==='Justificada'?'rj':r.just==='Não justificada'?'rn':'ri'}${na?' na':''}"><td>${na?'<span class="badge b-w" title="Nenhum item do checklist marcado">Não acompanhada</span> ':''}${r.hasOc?`<span class="badge b-o">${r.nOc>1?r.nOc+' ocorrências':'Ocorrência'}</span> `:''}${r.acomp==='Verificar'?'<span class="badge b-w" title="Ocorrência sem ATENDIMENTO_RESPONSAVEL">Verificar</span>':r.hasOc?'<span class="badge b-ok" title="Atendimento registrado">Atendimento</span>':''}</td>`+
-    C.slice(1).map(([k])=>k==='just'?`<td>${jb(r)}</td>`:k==='ck_data'?`<td title="${esc(ckPor(r)?'por '+ckPor(r):'')}">${esc(cell(r,k))||'<span style="color:var(--mut)">—</span>'}</td>`:k.startsWith('ck_')?ckCell(r,k.slice(3)):`<td${k==='obs'?' class="obs"':''} title="${esc(cell(r,k))}">${esc(cell(r,k))}</td>`).join('')+'</tr>'}).join(''):`<tr><td colspan="${C.length}" class="empty">Nenhum registro encontrado.</td></tr>`;
-  $('#pInfo').textContent=rows.length?`${nf.format(page*PS+1)}–${nf.format(Math.min(rows.length,page*PS+PS))} de ${nf.format(rows.length)} registros · página ${page+1} de ${pages}`:'0 registros';
+    return `<tr class="${r.just==='Justificada'?'rj':r.just==='Não justificada'?'rn':'ri'}${na?' na':''}">`+C.map(([k,l])=>tdFor(r,k,l,ins)).join('')+'</tr>'+(ins&&OPEN.has(rkey(r))?detalheFalta(r,C.length):'')}).join(''):`<tr><td colspan="${C.length}" class="empty">${ins&&scope==='st_pend'?'Nenhuma falta pendente. Tudo em dia!':'Nenhum registro encontrado.'}</td></tr>`;
+  $('#pInfo').textContent=rows.length?`${nf.format(page*PS+1)}–${nf.format(Math.min(rows.length,page*PS+PS))} de ${nf.format(rows.length)} ${ins?'faltas':'registros'} · página ${page+1} de ${pages}`:(ins?'0 faltas':'0 registros');
   $('#pPrev').disabled=page===0;$('#pNext').disabled=page>=pages-1;
-  $('#scopeChip').classList.toggle('on',!!scope);$('#scopeTxt').textContent=scope?'Recorte: '+SCOPES[scope][0]:'';
+  $('#scopeChip').classList.toggle('on',!!scope);$('#scopeTxt').textContent=scope?(ins?'Mostrando: ':'Recorte: ')+SCOPES[scope][0]:'';
+  if(ins){const w=$('.tscroll').clientWidth;if(w>700)document.querySelectorAll('#det tr.dx td>div').forEach(d=>d.style.maxWidth=(w-40)+'px');const sel=$('#f_st');if(sel)sel.value=scope&&scope.startsWith('st_')?scope:'';document.querySelectorAll('.qk [data-q]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.q==='pend'?String(scope==='st_pend'):b.dataset.q===qkPer()?'true':'false'))}
 }
 
 /* ---------- checklist do instrutor: indicadores e gravação automática ---------- */
@@ -787,32 +889,64 @@ function renderCkKpis(rows){
     none:'<circle cx="10" cy="10" r="7" fill="none" stroke="#fff" stroke-width="2"/><path d="M10 6v4l3 2" fill="none" stroke="#fff" stroke-width="2"/>'};
   const col={email_enviado:'var(--brand-2)',resposta_recebida:'var(--brand-2)',falta_justificada:'var(--just)',ocorrencia_lancada:'var(--oc)'};
   const card=(sc,i,c,lab,v,sub)=>`<button class="kpi" data-scope="${sc}"><span class="lab"><span class="ico" style="background:${c}"><svg width="18" height="18" viewBox="0 0 20 20">${ic[i]}</svg></span>${lab}</span><span class="val">${nf.format(v)}</span><span class="sub">${sub}</span><span class="meter"><i style="width:${t?v/t*100:0}%;background:${c}"></i></span></button>`;
+  /* quadro "O que fazer agora" */
+  const cS={Pendente:0,'Em andamento':0,'Concluída':0};rows.forEach(r=>cS[stIns(r)]++);const pend=cS.Pendente;
+  const hero=$('#ckHero');hero.classList.toggle('ok',!pend);
+  hero.innerHTML=t?`<div><h3>${pend?`Você tem ${nf.format(pend)} falta${pend>1?'s':''} pendente${pend>1?'s':''}`:'Tudo em dia! Nenhuma falta pendente.'}</h3>
+    <p>${nf.format(cS['Em andamento'])} em andamento · ${nf.format(cS['Concluída'])} concluída${cS['Concluída']===1?'':'s'} · ${nf.format(t)} falta${t===1?'':'s'} ${F.de||F.ate||F.turma||F.modulo?'nos filtros atuais':'no total'}</p></div>
+    <div class="acts">${pend?'<button class="btn pri" type="button" data-hero="pend">Ver pendentes</button>':''}${cS['Em andamento']?'<button class="btn" type="button" data-hero="and">Ver em andamento</button>':''}<button class="linkbtn" type="button" data-hero="howto">Como usar</button></div>`
+    :`<div><h3>Nenhuma falta encontrada</h3><p>Não há faltas registradas por você ${F.de||F.ate||F.turma||F.modulo?'com os filtros atuais':'na base atual'}.</p></div><div class="acts"><button class="linkbtn" type="button" data-hero="howto">Como usar</button></div>`;
+  hero.querySelectorAll('[data-hero]').forEach(b=>b.addEventListener('click',()=>{const a=b.dataset.hero;if(a==='howto'){mostrarComoUsar(true);return}scope=a==='pend'?'st_pend':'st_and';page=0;renderTable();document.getElementById('detalhe').scrollIntoView()}));
   $('#ckkpis').innerHTML=card('all','t','var(--brand-1)','Total de faltas',t,`${nf.format(new Set(rows.map(r=>r.ra)).size)} jovens distintos`)
     +CKF.map(([f,,l])=>{const v=cnt(f);return card('ck_'+f,f,col[f],l,v,`${pf(t?v/t:NaN)} das faltas`)}).join('')
-    +card('ck_none','none','var(--warn)','Sem acompanhamento iniciado',none,`${pf(t?none/t:NaN)} das faltas · nenhum item marcado`);
+    +card('ck_none','none','var(--warn)','Pendentes',none,`${pf(t?none/t:NaN)} das faltas · nenhuma etapa feita`);
   $('#ckkpis').querySelectorAll('.kpi').forEach(b=>b.addEventListener('click',()=>{const s=b.dataset.scope;scope=s==='all'?'':s;page=0;renderTable();document.getElementById('detalhe').scrollIntoView()}));
 }
 const saving=new Set();
-async function saveCk(inp){
-  const id=inp.dataset.id,f=inp.dataset.ck,val=inp.checked,key=id+'|'+f;
-  if(!INS()||!sb||saving.has(key)){inp.checked=!val;return}
+/* grava UMA etapa do checklist (usada pelos botões e pelo "✉ E-mail") */
+async function setCk(id,f,val){
+  const key=id+'|'+f;if(!INS()||!sb||saving.has(key))return false;
   const prev=CK.get(id)?{...CK.get(id)}:null;
-  const optim={...(prev||{id_falta:id}),[f]:val};CK.set(id,optim);
-  inp.nextElementSibling.textContent=val?'Sim':'Não';
-  saving.add(key);inp.disabled=true;
+  CK.set(id,{...(prev||{id_falta:id}),[f]:val});saving.add(key);
   const{data,error}=await sb.rpc('salvar_checklist',{p_id_falta:id,p_campo:f,p_valor:val});
   saving.delete(key);
-  if(error){/* desfaz só o campo que falhou */
-    const c=CK.get(id);if(c){if(prev)c[f]=!!prev[f];else c[f]=false}
-    toast('Não foi possível salvar: '+(error.message||'erro desconhecido'));
-  }else{/* aplica só o campo gravado + carimbo (respostas podem chegar fora de ordem) */
-    const row=Array.isArray(data)?data[0]:data;const c=CK.get(id)||{id_falta:id};
+  if(error){const c=CK.get(id);if(c)c[f]=prev?!!prev[f]:false;toast('Não foi possível salvar: '+(error.message||'erro desconhecido'));}
+  else{const row=Array.isArray(data)?data[0]:data;const c=CK.get(id)||{id_falta:id};
     c[f]=!!(row&&row[f]);c.atualizado_por=row?.atualizado_por||c.atualizado_por;c.data_ultima_alteracao=row?.data_ultima_alteracao||new Date().toISOString();CK.set(id,c);
-    toast('Acompanhamento salvo.');
-  }
-  const rows=cur();renderCkKpis(rows);renderTable();
+    toast(f==='email_enviado'&&val?'“E-mail enviado” marcado e salvo.':'Etapa salva.');}
+  renderCkKpis(cur());renderTable();return !error;
+}
+async function saveCk(inp){
+  const id=inp.dataset.id,f=inp.dataset.ck,val=inp.checked;
+  if(saving.has(id+'|'+f)){inp.checked=!val;return}
+  inp.nextElementSibling.textContent=val?'Sim':'Não';inp.disabled=true;
+  await setCk(id,f,val);
   const again=document.querySelector(`#det input[data-ck="${f}"][data-id="${CSS.escape(id)}"]`);if(again&&document.activeElement===document.body)again.focus();
 }
+/* ✉ E-mail: abre a mensagem pronta para o jovem e marca a etapa "E-mail enviado" */
+function textoEmail(r){
+  const prim=(r.nome||'').trim().split(/\s+/)[0]||'';const quem=(MEU_NOME||MEU_USUARIO||'').replace(/\s+/g,' ').trim();
+  const assunto=`Falta em ${r.dataFalta?fD(r.dataFalta):'aula'} – Projeto Bojador${r.turma?' – turma '+r.turma:''}`;
+  const corpo=`Olá, ${prim}!\n\nNotamos sua ausência na aula do dia ${r.dataFalta?fD(r.dataFalta):'—'}${r.turma?` (turma ${r.turma}${r.modulo?', '+r.modulo:''})`:''}. Está tudo bem?\n\nPor favor, responda este e-mail contando o motivo da falta e, se tiver, envie o atestado ou outro documento que justifique a ausência.\n\nConte com a gente!\n${quem}\nProjeto Bojador`;
+  return{assunto,corpo};
+}
+function abrirEmail(key){
+  const r=DATA.find(x=>rkey(x)===key);if(!r||!r.email)return;
+  const{assunto,corpo}=textoEmail(r);
+  const a=document.createElement('a');a.href=`mailto:${encodeURIComponent(r.email).replace(/%40/g,'@')}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
+  if(r.idFalta&&!ckVal(r,'email_enviado'))setCk(r.idFalta,'email_enviado',true);
+}
+$('#det').addEventListener('click',e=>{
+  const m=e.target.closest('[data-mail]');if(m){abrirEmail(m.dataset.mail);return}
+  const d=e.target.closest('[data-det]');if(d){const k=d.dataset.det;OPEN.has(k)?OPEN.delete(k):OPEN.add(k);renderTable();if(OPEN.has(k))$('.tscroll').scrollLeft=0}
+});
+/* "Como usar": aparece no primeiro acesso e pode ser reaberto */
+const HOWTO_KEY='bojador_como_usar_v1';
+function mostrarComoUsar(forcar){
+  let visto=false;try{visto=localStorage.getItem(HOWTO_KEY)==='1'}catch(_){}
+  const el=$('#howto');el.hidden=!(forcar||!visto);if(forcar)el.scrollIntoView({block:'center'});
+}
+$('#howtoOk').addEventListener('click',()=>{$('#howto').hidden=true;try{localStorage.setItem(HOWTO_KEY,'1')}catch(_){}});
 async function fetchChecklist(){
   CK.clear();
   for(let i=0;;){const{data,error}=await sb.from('checklist_acompanhamento_faltas').select('id_falta,email_enviado,resposta_recebida,falta_justificada,ocorrencia_lancada,atualizado_por,data_ultima_alteracao').order('id_falta').range(i,i+999);
@@ -825,7 +959,8 @@ async function exportXlsx(){
   if(typeof XLSX==='undefined'){toast('Biblioteca de Excel indisponível.');return}
   const rows=tableRows();if(!rows.length){toast('Nada para exportar.');return}
   const ins=INS();
-  const out=rows.map(r=>{const o={};cols().slice(1).forEach(([k,l])=>{o[l]=cell(r,k)});if(ins)o['ALTERADO POR']=ckPor(r);o['Possui ocorrência']=r.hasOc?'Sim':'Não';o['Acompanhamento']=r.acomp==='Verificar'?'Sem atendimento registrado':r.acomp;if(ins)o['Situação do checklist']=ckStarted(r)?'Em acompanhamento':'Não acompanhada';return o});
+  const EC=ins?EXP_INS:cols().slice(1);
+  const out=rows.map(r=>{const o={};EC.forEach(([k,l])=>{o[l]=cell(r,k)});if(ins){o['ALTERADO POR']=ckPor(r);o['SITUAÇÃO']=stIns(r);o['ETAPAS CONCLUÍDAS']=`${ckN(r)} de 4`}o['Possui ocorrência']=r.hasOc?'Sim':'Não';o['Acompanhamento']=r.acomp==='Verificar'?'Sem atendimento registrado':r.acomp;return o});
   const ws=XLSX.utils.json_to_sheet(out);ws['!cols']=Object.keys(out[0]).map(k=>({wch:Math.min(40,Math.max(10,k.length+2))}));
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Faltas');
   const buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});
@@ -876,11 +1011,16 @@ function load(rows,src){
 
 /* eventos */
 $('#ftoggle').addEventListener('click',()=>$('#filters').classList.toggle('open'));
-$('#fbar').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='fclr'){for(const k in F)F[k]=''}else if(b.dataset.k)F[b.dataset.k]='';page=0;render()});
+$('#fbar').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.q){const q=b.dataset.q;if(q==='pend'){scope=scope==='st_pend'?'':'st_pend';page=0;renderTable();syncFilters();if(scope)document.getElementById('detalhe').scrollIntoView();return}
+    const p=periodo(q);if(qkPer()===q){F.de='';F.ate=''}else{F.de=p.de;F.ate=p.ate}page=0;render();toast(F.de?(q==='semana'?'Mostrando esta semana':'Mostrando este mês'):'Período removido');return}if(b.id==='fclr'){for(const k in F)F[k]=''}else if(b.dataset.k)F[b.dataset.k]='';page=0;render()});
 $('#tInstr').addEventListener('change',e=>{F.instr=e.target.value;page=0;render()});
 $('#tSearch').addEventListener('input',e=>{search=e.target.value;page=0;renderTable()});
 $('#scopeClr').addEventListener('click',()=>{scope='';page=0;renderTable()});
 $('#pPrev').addEventListener('click',()=>{page--;renderTable()});$('#pNext').addEventListener('click',()=>{page++;renderTable()});
+$('#insAnalises').addEventListener('toggle',()=>{if($('#insAnalises').open)renderCharts(cur())});
+$('#navAnl').addEventListener('click',()=>{$('#insAnalises').open=true});
+$('#rkToggle').addEventListener('click',()=>{const on=document.body.classList.toggle('rk-open');$('#rkToggle').textContent=on?'Ocultar ranking completo ▴':'Ver ranking completo ▾'});
 $('#r1mode').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;r1mode=b.dataset.m;$('#r1mode').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));if(INS())renderRanksIns();else renderRanks(cur())});
 $('#btnXlsx').addEventListener('click',exportXlsx);
 $('#det').addEventListener('change',e=>{const i=e.target.closest('input[data-ck]');if(i)saveCk(i)});
@@ -898,6 +1038,7 @@ function closeMenu(){pMenu.hidden=true;pBtn.setAttribute('aria-expanded','false'
 function setProfile(nome){/* opções de administração existem só no perfil de admin */
   const on=!!papel;$('#whoPill').hidden=!on;closeMenu();
   document.body.classList.toggle('ins',INS());/* visão individual simplificada do instrutor */
+  if(INS()){const box=$('#anlBody');['visao','ocorrencias','analises'].forEach(id=>{const sec=document.getElementById(id);if(sec&&sec.parentElement!==box)box.appendChild(sec)});mostrarComoUsar(false)}
   $('#admItems').hidden=!isAdmin();
   if(!isAdmin()){$('#dlgLoad').open&&$('#dlgLoad').close();$('#dlgAdmin').open&&$('#dlgAdmin').close()}
   if(on){$('#whoEmail').textContent=nome;$('#whoRole').textContent=isAdmin()?'Administrador':'Instrutor';$('#whoAv').textContent=(nome.trim()[0]||'?').toUpperCase()}}
