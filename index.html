@@ -336,7 +336,7 @@ body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
    <h3>Como usar o painel (3 passos)</h3>
    <ol>
     <li><b>Veja suas pendentes</b> no quadro abaixo e clique em <b>Ver pendentes</b>. Aparecem só as faltas registradas por você.</li>
-    <li><b>Acompanhe cada falta</b> em ordem: <b>E-mail enviado → Resposta recebida → Falta justificada → Ocorrência lançada</b>. O botão <b>✉ E-mail</b> já abre a mensagem pronta para o jovem e marca a primeira etapa.</li>
+    <li><b>Acompanhe cada falta</b> em ordem: <b>Contato com o jovem → Resposta recebida → Falta justificada → Ocorrência lançada</b>. O botão <b>✉ E-mail</b> já abre a mensagem pronta para o jovem e marca o contato. O que já está na base é marcado sozinho: falta com ocorrência conta como contato feito, resposta recebida e ocorrência lançada; JUSTIFICADA = Sim conta como falta justificada.</li>
     <li><b>Não precisa salvar:</b> cada marcação é gravada na hora, com data e hora. Quando a ocorrência é lançada, a falta fica <b>Concluída</b>.</li>
    </ol>
    <button class="btn pri" type="button" id="howtoOk">Entendi</button>
@@ -358,7 +358,7 @@ body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
   <div class="rkres so-ins" id="rkResumo"></div>
   <button class="linkbtn so-ins" type="button" id="rkToggle" style="margin:0 0 8px">Ver ranking completo ▾</button>
   <p class="lead so-admin">Classificação pelas faltas registradas sob responsabilidade de cada instrutor (campo “Criada por”), apenas para quem tem registros no período. Empates recebem a mesma posição.</p>
-  <p class="note so-ins" id="rkNota" style="margin:0 0 10px">O ranking mostra só os totais de cada instrutor e considera o período escolhido nos filtros. Menos faltas não significa, por si só, melhor desempenho: depende do tamanho e do perfil das turmas.</p>
+  <p class="note so-ins" id="rkNota" style="margin:0 0 10px">O ranking considera a base inteira (todas as faltas de todos os instrutores, sem filtros) e mostra só os totais de cada um. Menos faltas não significa, por si só, melhor desempenho: depende do tamanho e do perfil das turmas.</p>
   <div class="podwrap" id="podwrap">
    <div class="panel">
     <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center">
@@ -401,6 +401,7 @@ body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
    <div class="panel" style="grid-column:1/-1"><h3>Evolução mensal das faltas</h3><div class="legend"><span><i style="background:var(--just)"></i>Justificada</span><span><i style="background:var(--nj)"></i>Não justificada</span><span><i style="background:var(--ni)"></i>Não informado</span></div><div class="fig"><canvas id="cMes"></canvas></div></div>
    <div class="panel"><h3>Justificadas × não justificadas</h3><div id="jvn"></div></div>
    <div class="panel so-admin"><h3>Distribuição por instrutor</h3><div class="legend"><span><i style="background:var(--just)"></i>Justificada</span><span><i style="background:var(--nj)"></i>Não justificada</span><span><i style="background:var(--ni)"></i>Não informado</span></div><div class="bars" id="bInstr"></div></div>
+   <div class="panel so-admin"><h3>Por modalidade <span class="tip" tabindex="0" data-tip="EAD = turmas com “APC” no código da turma; as demais são presenciais. Clique para filtrar.">i</span></h3><div class="legend"><span><i style="background:var(--just)"></i>Justificada</span><span><i style="background:var(--nj)"></i>Não justificada</span><span><i style="background:var(--ni)"></i>Não informado</span></div><div class="bars" id="bModal"></div></div>
    <div class="panel"><h3>Por estado</h3><div class="bars" id="bUF"></div></div>
    <div class="panel so-admin"><h3>Por empresa</h3><div class="bars" id="bEmp"></div></div>
    <div class="panel"><h3>Por módulo</h3><div class="bars" id="bMod"></div></div>
@@ -412,7 +413,7 @@ body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
  <section id="detalhe">
   <h2><span class="so-admin">Detalhamento individual</span><span class="so-ins">Minhas faltas</span></h2>
   <p class="lead so-admin">Selecione um instrutor para ver somente os registros dele. A tabela também segue os filtros gerais e as seleções feitas nos rankings e gráficos.</p>
-  <p class="lead so-ins">Marque cada etapa quando concluir — salva na hora. <b>✉ E-mail</b> abre a mensagem pronta para o jovem e marca “E-mail enviado”. <b>Detalhes</b> mostra empresa, observações e todas as ocorrências. Faltas com ocorrência já registrada na base aparecem como “Ocorrência lançada · base”.</p>
+  <p class="lead so-ins">Marque cada etapa quando concluir — salva na hora. <b>✉ E-mail</b> abre a mensagem pronta para o jovem e marca “Contato com o jovem”. <b>Detalhes</b> mostra empresa, observações e todas as ocorrências. Etapas marcadas como “Sim · base” vieram da própria base (ocorrência registrada ou JUSTIFICADA = Sim).</p>
   <div class="panel">
    <div class="tbar">
     <select id="tInstr" class="so-admin" aria-label="Instrutor"></select>
@@ -527,8 +528,8 @@ const nk=k=>String(k).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().repl
 
 /* ---------- estado ---------- */
 let RAW=[],DATA=[],DQ={},SOURCE={sample:true,updated:null,name:''};
-const FKEYS=[['instr','Instrutor (Criada por)'],['estado','Estado'],['empresa','Empresa'],['turma','Turma'],['modulo','Módulo'],['just','Justificativa'],['grupo','Grupo de ocorrência'],['tipo','Tipo de ocorrência'],['atend','Responsável pelo atendimento']];
-const F={de:'',ate:'',instr:'',estado:'',empresa:'',turma:'',modulo:'',just:'',grupo:'',tipo:'',atend:''};
+const FKEYS=[['modal','Modalidade'],['instr','Instrutor (Criada por)'],['estado','Estado'],['empresa','Empresa'],['turma','Turma'],['modulo','Módulo'],['just','Justificativa'],['grupo','Grupo de ocorrência'],['tipo','Tipo de ocorrência'],['atend','Responsável pelo atendimento']];
+const F={de:'',ate:'',modal:'',instr:'',estado:'',empresa:'',turma:'',modulo:'',just:'',grupo:'',tipo:'',atend:''};
 let r1mode='abs',scope='',sortK='dataFalta',sortD=-1,page=0;const PS=25;const colF={};let search='';
 const charts={};
 /* visão individual do instrutor */
@@ -538,10 +539,14 @@ let MEU_NOME='',MEU_USUARIO='';
 /* chaves que identificam o instrutor no campo "Criada por": usuário (ex.: guilherme.bezerra) e nome — mesma regra do banco */
 const minhasChaves=()=>[MEU_USUARIO,MEU_NOME].map(normNome).filter(Boolean);
 const CK=new Map();/* id_falta → checklist salvo */
-const CKF=[['email_enviado','E-MAIL ENVIADO','E-mails enviados'],['resposta_recebida','RESPOSTA RECEBIDA','Respostas recebidas'],['falta_justificada','FALTA JUSTIFICADA','Faltas justificadas no checklist'],['ocorrencia_lancada','OCORRÊNCIA LANÇADA','Ocorrências lançadas']];
+const CKF=[['email_enviado','CONTATO COM O JOVEM','Contatos realizados com o jovem'],['resposta_recebida','RESPOSTA RECEBIDA','Respostas recebidas'],['falta_justificada','FALTA JUSTIFICADA','Faltas justificadas no checklist'],['ocorrencia_lancada','OCORRÊNCIA LANÇADA','Ocorrências lançadas']];
 const ckOf=r=>CK.get(r.idFalta);
 /* falta com ocorrência registrada na base já conta como acompanhada: "Ocorrência lançada" = Sim (vindo da base) */
-const ckBase=(r,f)=>f==='ocorrencia_lancada'&&!!r.hasOc;
+/* etapas reconhecidas pela base:
+   - falta com ocorrência: o instrutor já registrou a resposta do jovem no sistema → contato realizado, resposta recebida e ocorrência lançada;
+   - JUSTIFICADA = Sim na base → falta justificada */
+const ckBase=(r,f)=>f==='falta_justificada'?r.just==='Justificada':!!r.hasOc;
+const ckBaseTit=f=>f==='falta_justificada'?'Falta marcada como justificada na base (JUSTIFICADA = Sim)':f==='ocorrencia_lancada'?'Ocorrência já registrada na base':'Há ocorrência registrada na base: o contato com o jovem e a resposta dele já aconteceram';
 const ckVal=(r,f)=>!!(ckOf(r)||{})[f]||ckBase(r,f);
 const ckStarted=r=>CKF.some(([f])=>ckVal(r,f));
 /* situação única da falta (visão do instrutor): Pendente → Em andamento → Concluída (ocorrência lançada) */
@@ -582,7 +587,12 @@ function prepare(rows){
     const tv=isBlank(r.total)?'vazio':String(r.total).trim();DQ.totalVals[tv]=(DQ.totalVals[tv]||0)+1;
     out.push(rec);
   }
+  /* um mesmo instrutor pode vir escrito com maiúsculas/minúsculas diferentes: usa a grafia mais frequente */
+  const forma=new Map();for(const rec of out){const k=normNome(rec.instr);if(!forma.has(k))forma.set(k,new Map());const m=forma.get(k);m.set(rec.instr,(m.get(rec.instr)||0)+1)}
+  const canon=new Map([...forma].map(([k,m])=>[k,[...m].sort((a,b)=>b[1]-a[1])[0][0]]));
   for(const rec of out){/* consolida as ocorrências de cada falta */
+    rec.instr=canon.get(normNome(rec.instr))||rec.instr;
+    rec.modal=/APC/i.test(rec.turma)?'EAD':'Presencial';/* turmas com "APC" no código são EAD */
     delete rec._ocKeys;if(rec.just==='Não informado')DQ.justNI++;
     for(const o of rec.ocs){const n=[o.dataOc,o.grupo,o.tipo,o.atend].filter(Boolean).length;o.acomp=n===4?'Completo':o.atend?'Parcial':'Verificar'}
     rec.ocs.sort((a,b)=>(b.dataOc?+b.dataOc:0)-(a.dataOc?+a.dataOc:0));
@@ -647,8 +657,9 @@ function syncFilters(){
   $('#tInstr').value=F.instr;
   const lab=Object.fromEntries(FKEYS);lab.de='De';lab.ate='Até';
   const act=Object.keys(F).filter(k=>F[k]);
+  const seg=!INS()?`<span class="qk" aria-label="Modalidade">${['','EAD','Presencial'].map(v=>`<button type="button" data-modal="${v}" aria-pressed="${F.modal===v}">${v||'Todas as modalidades'}</button>`).join('')}</span>`:'';
   const qk=INS()?`<span class="qk"><button type="button" data-q="pend" aria-pressed="${scope==='st_pend'}">Pendentes</button><button type="button" data-q="semana" aria-pressed="${qkPer()==='semana'}">Esta semana</button><button type="button" data-q="mes" aria-pressed="${qkPer()==='mes'}">Este mês</button></span>`:'';
-  $('#fbar').innerHTML=qk+(act.length?act.map(k=>`<span class="chip">${esc(lab[k])}: <b>${esc(k==='de'||k==='ate'?fD(parseDate(F[k])):F[k])}</b><button data-k="${k}" aria-label="Remover filtro">×</button></span>`).join('')+`<button class="linkbtn" id="fclr">Limpar filtros</button>`:`<span style="font-size:13px;color:var(--mut)">Nenhum filtro aplicado.</span>`);
+  $('#fbar').innerHTML=seg+qk+(act.length?act.map(k=>`<span class="chip">${esc(lab[k])}: <b>${esc(k==='de'||k==='ate'?fD(parseDate(F[k])):F[k])}</b><button data-k="${k}" aria-label="Remover filtro">×</button></span>`).join('')+`<button class="linkbtn" id="fclr">Limpar filtros</button>`:`<span style="font-size:13px;color:var(--mut)">Nenhum filtro aplicado.</span>`);
 }
 /* atalhos de período (visão do instrutor) */
 const periodo=q=>{const h=new Date();h.setHours(0,0,0,0);let a=new Date(h);if(q==='semana'){const d=(h.getDay()+6)%7;a.setDate(h.getDate()-d)}else a=new Date(h.getFullYear(),h.getMonth(),1);return{de:iso(a),ate:iso(h)}};
@@ -716,7 +727,7 @@ function renderRanks(rows,pre){
   $('#r3').innerHTML=r3.length?`<thead><tr><th>Pos.</th><th>Instrutor</th><th style="text-align:right">Ocorrências</th><th>Grupo predominante</th><th>Tipo mais recorrente</th><th style="text-align:right">Com atendimento</th></tr></thead><tbody>`+r3.map(x=>`<tr class="clk${eu(x)}" data-n="${esc(x.n)}"><td><span class="pos${pc(x.pos)}">${x.pos}º</span></td><td>${esc(x.n)}</td><td class="n">${nf.format(x.oc)} <small style="color:var(--mut)">em ${nf.format(x.ocF??x.oc)} falta(s)</small></td><td>${esc(x.g?x.g.k:'—')}</td><td>${esc(x.t?x.t.k:'—')}</td><td class="n">${nf.format(x.ocAt)} <small style="color:var(--mut)">de ${nf.format(x.oc)}</small></td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="empty">Nenhuma ocorrência no período.</td></tr></tbody>';
   if(ins){/* instrutor: resumo da própria posição; tabelas completas ficam em "Ver ranking completo" */
     const mine=l=>l.find(x=>me.has(normNome(x.k||x.n)));const a=mine(r1),b=mine(r2),c=mine(r3);
-    const box=(t,x,n,det)=>`<div class="ac"><span>${t}</span><b>${x?x.pos+'º':'—'}</b><span>${x?`de ${nf.format(n)} instrutores · ${det(x)}`:'sem registros no período'}</span></div>`;
+    const box=(t,x,n,det)=>{return`<div class="ac"><span>${t}</span><b>${x?x.pos+'º':'—'}</b><span>${x?`de ${nf.format(n)} instrutores · ${det(x)}`:'sem registros na base'}</span>${x&&n>1?`<span style="display:block;margin-top:4px">${x.pos===1?'Melhor posição entre todos':`${nf.format(x.pos-1)} instrutor(es) à sua frente`}</span>`:''}</div>`};
     $('#rkResumo').innerHTML=box(r1mode==='abs'?'Menos faltas':r1mode==='turma'?'Menos faltas por turma':'Menos faltas por jovem',a,r1.length,x=>esc(fmt(x)))+box('Maior % de faltas justificadas',b,r2.length,x=>`${pf(x.j/x.tot)} justificadas`)+box('Mais ocorrências registradas',c,r3.length,x=>`${nf.format(x.oc)} ocorrência(s)`);
     return}
   document.querySelectorAll('#podium .step,#r1 tr.clk,#r2 tr.clk,#r3 tr.clk').forEach(el=>el.addEventListener('click',()=>{selInstr(el.dataset.n,true);toast(`Registros de ${el.dataset.n}`)}));
@@ -791,6 +802,7 @@ function renderCharts(rows){
    <p class="note">Registros com JUSTIFICADA vazia ficam como “Não informado” — não são tratados como não justificados.</p>`:'<div class="empty">Sem dados.</div>';
   $('#jvn').querySelectorAll('[data-j]').forEach(b=>b.addEventListener('click',()=>setF('just',b.dataset.j)));
   if(!INS())bars('bInstr',countBy(rows,r=>r.instr).map(e=>({...e,parts:justParts(e.rs)})),'instr',{limit:12});
+  if(!INS())bars('bModal',countBy(rows,r=>r.modal).map(e=>({...e,parts:justParts(e.rs)})),'modal',{total:t});
   bars('bUF',countBy(rows,r=>r.estado||'(vazio)'),'estado',{total:t});
   if(!INS())bars('bEmp',countBy(rows,r=>r.empresa||'(vazio)'),'empresa',{total:t});
   bars('bMod',countBy(rows,r=>r.modulo||'(vazio)').sort((a,b)=>a.k.localeCompare(b.k,'pt-BR',{numeric:true})),'modulo',{total:t});
@@ -807,7 +819,7 @@ const cols=()=>INS()?COLS_INS:COLS;
 const SCOPES={just:['Justificadas',r=>r.just==='Justificada'],nj:['Não justificadas',r=>r.just==='Não justificada'],oc:['Com ocorrência',r=>r.hasOc],atend:['Ocorrências com atendimento',r=>r.ocs.some(o=>o.atend)],comp:['Ocorrências completas',r=>r.ocs.some(o=>o.acomp==='Completo')],verif:['Ocorrências sem atendimento registrado',r=>r.ocs.some(o=>!o.atend)],
   ck_none:['Pendentes',r=>!ckStarted(r)],st_pend:['Pendentes',r=>stIns(r)==='Pendente'],st_and:['Em andamento',r=>stIns(r)==='Em andamento'],st_conc:['Concluídas',r=>stIns(r)==='Concluída'],...Object.fromEntries(CKF.map(([f,,l])=>['ck_'+f,[l,r=>ckVal(r,f)]]))};
 /* última alteração: a do instrutor (manual) ou, se o acompanhamento veio da base, a data da atualização da base */
-const ckFonte=r=>{const c=ckOf(r);return c&&c.data_ultima_alteracao?'instrutor':r.hasOc?'base':''};
+const ckFonte=r=>{const c=ckOf(r);return c&&c.data_ultima_alteracao?'instrutor':CKF.some(([f])=>ckBase(r,f))?'base':''};
 const ckDate=r=>{const f=ckFonte(r);return f==='instrutor'?new Date(ckOf(r).data_ultima_alteracao):f==='base'?(SOURCE.updated||null):null};
 const ckPor=r=>ckFonte(r)==='instrutor'?(ckOf(r).atualizado_por||''):ckFonte(r)==='base'?'Atualização da base':'';
 const cell=(r,k)=>{if(k==='_acoes')return'';if(k==='_st'&&INS())return stIns(r);if(k==='ck_data'){const d=ckDate(r);return d?fDT(d)+(ckFonte(r)==='base'?' · base':''):''}if(k.startsWith('ck_'))return ckVal(r,k.slice(3))?'Sim':'Não';
@@ -842,7 +854,7 @@ function buildTableHead(){
   $('#det').querySelectorAll('[data-cf]').forEach(i=>i.addEventListener(i.tagName==='SELECT'?'change':'input',()=>{colF[i.dataset.cf]=i.value;page=0;renderTable()}));
 }
 const ckCell=(r,f)=>{const on=ckVal(r,f),lab=CKF.find(x=>x[0]===f)[1];
-  if(ckBase(r,f)&&r.idFalta)return `<td class="ck" title="Ocorrência já registrada na base (DATAOCORRENCIA/GRUPO/TIPO)"><label class="tg"><input type="checkbox" checked disabled aria-label="${esc(lab)} — registrada na base"><span>Sim · base</span></label></td>`;
+  if(ckBase(r,f)&&r.idFalta)return `<td class="ck" title="${ckBaseTit(f)}"><label class="tg"><input type="checkbox" checked disabled aria-label="${esc(lab)} — registrada na base"><span>Sim · base</span></label></td>`;
   return r.idFalta?`<td class="ck"><label class="tg"><input type="checkbox" data-ck="${f}" data-id="${esc(r.idFalta)}"${on?' checked':''} aria-label="${esc(lab)} — ${esc(r.nome)} em ${esc(cell(r,'dataFalta'))}"><span>${on?'Sim':'Não'}</span></label></td>`:`<td class="ck" title="Falta sem identificador">—</td>`};
 const OPEN=new Set();/* faltas com "Detalhes" aberto */
 const jb=r=>r.just==='Justificada'?'<span class="badge b-j">✓ Justificada</span>':r.just==='Não justificada'?'<span class="badge b-n">✕ Não justificada</span>':'<span class="badge b-i">? Não informado</span>';
@@ -913,7 +925,7 @@ async function setCk(id,f,val){
   if(error){const c=CK.get(id);if(c)c[f]=prev?!!prev[f]:false;toast('Não foi possível salvar: '+(error.message||'erro desconhecido'));}
   else{const row=Array.isArray(data)?data[0]:data;const c=CK.get(id)||{id_falta:id};
     c[f]=!!(row&&row[f]);c.atualizado_por=row?.atualizado_por||c.atualizado_por;c.data_ultima_alteracao=row?.data_ultima_alteracao||new Date().toISOString();CK.set(id,c);
-    toast(f==='email_enviado'&&val?'“E-mail enviado” marcado e salvo.':'Etapa salva.');}
+    toast(f==='email_enviado'&&val?'“Contato com o jovem” marcado e salvo.':'Etapa salva.');}
   renderCkKpis(cur());renderTable();return !error;
 }
 async function saveCk(inp){
@@ -991,10 +1003,10 @@ function renderDQ(){
 /* ---------- orquestração ---------- */
 let RK={key:null,st:null,pend:null};
 async function renderRanksIns(){
-  if(!sb)return;const key=(F.de||'')+'|'+(F.ate||'');
+  if(!sb)return;const key='geral';/* posição real: sempre a base inteira, sem filtros */
   if(RK.key===key&&RK.st){renderRanks([],RK.st);return}
   RK.pend=key;
-  const{data,error}=await sb.rpc('ranking_instrutores',{p_de:F.de||null,p_ate:F.ate||null});
+  const{data,error}=await sb.rpc('ranking_instrutores',{p_de:null,p_ate:null});
   if(RK.pend!==key)return;
   if(error){$('#podium').innerHTML=`<div class="empty" style="grid-column:1/-1">Não foi possível carregar o ranking: ${esc(error.message)}</div>`;return}
   RK={key,pend:null,st:(data||[]).map(x=>({n:x.instrutor,k:x.chave,tot:x.total,j:x.justificadas,nj:x.nao_justificadas,ni:x.nao_informadas,turmas:Math.max(1,x.turmas),jovens:Math.max(1,x.jovens),oc:x.ocorrencias,ocAt:x.ocorrencias_atendidas,ocF:x.faltas_com_ocorrencia,g:x.grupo_top?{k:x.grupo_top}:null,t:x.tipo_top?{k:x.tipo_top}:null}))};
@@ -1012,6 +1024,7 @@ function load(rows,src){
 /* eventos */
 $('#ftoggle').addEventListener('click',()=>$('#filters').classList.toggle('open'));
 $('#fbar').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.modal!==undefined){F.modal=b.dataset.modal;page=0;render();toast(F.modal?`Mostrando: ${F.modal}`:'Todas as modalidades');return}
   if(b.dataset.q){const q=b.dataset.q;if(q==='pend'){scope=scope==='st_pend'?'':'st_pend';page=0;renderTable();syncFilters();if(scope)document.getElementById('detalhe').scrollIntoView();return}
     const p=periodo(q);if(qkPer()===q){F.de='';F.ate=''}else{F.de=p.de;F.ate=p.ate}page=0;render();toast(F.de?(q==='semana'?'Mostrando esta semana':'Mostrando este mês'):'Período removido');return}if(b.id==='fclr'){for(const k in F)F[k]=''}else if(b.dataset.k)F[b.dataset.k]='';page=0;render()});
 $('#tInstr').addEventListener('change',e=>{F.instr=e.target.value;page=0;render()});
