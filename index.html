@@ -162,6 +162,7 @@ h2{font-size:22px;margin:0 0 4px;line-height:1.2}
 table.det{border-collapse:separate;border-spacing:0;font-size:13px;width:max-content;min-width:100%}
 table.det th{position:sticky;top:0;background:var(--soft);z-index:2;text-align:left;padding:8px;font-size:12px;white-space:nowrap;border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
 table.det tr.cf th{top:33px;cursor:default;padding:4px}
+table.det tr.cf select{width:100%;min-width:90px;height:28px;border:1px solid var(--line);border-radius:6px;background:var(--panel);font-size:12px;padding:0 4px}
 table.det tr.cf input{width:100%;min-width:80px;height:28px;border:1px solid var(--line);border-radius:6px;background:var(--panel);font-size:12px;padding:0 6px}
 table.det td{padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis}
 table.det td.obs{white-space:normal;min-width:220px}
@@ -307,9 +308,9 @@ table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
     <p class="note">Menos faltas registradas não significa, por si só, melhor desempenho: o número depende do tamanho e do perfil das turmas. Use as visões proporcionais para comparar.</p>
    </div>
    <div class="grid">
-    <div class="panel"><h3>Ranking 2 · Mais faltas justificadas <span class="tip" tabindex="0" data-tip="% = justificadas ÷ total de faltas do próprio instrutor.">i</span></h3>
+    <div class="panel"><h3>Ranking 2 · Maior % de faltas justificadas <span class="tip" tabindex="0" data-tip="Classificação pela % = justificadas ÷ total de faltas do próprio instrutor (não pela quantidade).">i</span></h3>
      <div class="scrollbox" style="max-height:300px"><table class="rank" id="r2"></table></div></div>
-    <div class="panel"><h3>Ranking 3 · Mais faltas com ocorrência <span class="tip" tabindex="0" data-tip="Falta com ocorrência = possui DATAOCORRENCIA, GRUPO_OCORRENCIA ou TIPO_OCORRENCIA preenchidos.">i</span></h3>
+    <div class="panel"><h3>Ranking 3 · Mais ocorrências <span class="tip" tabindex="0" data-tip="Conta cada ocorrência (acompanhamento): uma falta pode ter mais de uma. Ocorrência = DATAOCORRENCIA, GRUPO_OCORRENCIA ou TIPO_OCORRENCIA preenchidos.">i</span></h3>
      <div class="scrollbox" style="max-height:300px"><table class="rank" id="r3"></table></div></div>
    </div>
   </div>
@@ -480,8 +481,9 @@ const ckStarted=r=>CKF.some(([f])=>ckVal(r,f));
 
 /* ---------- preparação dos dados ---------- */
 function prepare(rows){
-  DQ={lidas:rows.length,totais:0,dup:0,semData:0,semInstr:0,justNI:0,totalVals:{}};
-  const seen=new Set(),out=[];
+  DQ={lidas:rows.length,totais:0,dup:0,ocExtra:0,semData:0,semInstr:0,justNI:0,totalVals:{}};
+  const seen=new Map(),out=[];
+  const JP={'Justificada':2,'Não justificada':1,'Não informado':0};
   for(const r0 of rows){
     const r={};for(const k in r0){const m=KEYMAP[nk(k)];if(m)r[m]=r0[k]}
     const raS=isBlank(r.ra)?'':String(r.ra).trim();
@@ -493,13 +495,29 @@ function prepare(rows){
       email:String(r.email??'').trim(),empresa:isBlank(r.empresa)?'':String(r.empresa).trim(),estado:isBlank(r.estado)?'':String(r.estado).trim().toUpperCase(),
       dataOc:parseDate(r.dataOcRaw),grupo:isBlank(r.grupo)?'':String(r.grupo).trim(),tipo:isBlank(r.tipo)?'':String(r.tipo).trim(),
       atend:isBlank(r.atend)?'':String(r.atend).trim(),obs:isBlank(r.obs)?'':String(r.obs).trim(),desl:parseDate(r.deslRaw),deslRaw:r.deslRaw,total:r.total,idFalta:isBlank(r.idFalta)?'':String(r.idFalta)};
+    /* cada linha pode trazer uma ocorrência (acompanhamento) da falta */
+    const oc={dataOc:rec.dataOc,grupo:rec.grupo,tipo:rec.tipo,atend:rec.atend,obs:rec.obs};
+    const temOc=!!(oc.dataOc||oc.grupo||oc.tipo);const ocKey=[iso(oc.dataOc),oc.grupo,oc.tipo,oc.atend,oc.obs].join('|');
     const key=[rec.ra,rec.turma,iso(rec.dataFalta)||String(r.dataFaltaRaw??''),rec.modulo].join('|');
-    if(seen.has(key)){DQ.dup++;continue}seen.add(key);
-    if(!dataFalta)DQ.semData++;if(rec.instr==='(não informado)')DQ.semInstr++;if(rec.just==='Não informado')DQ.justNI++;
+    if(seen.has(key)){/* mesma falta: soma a ocorrência nova (se houver) e não conta a falta de novo */
+      const f=seen.get(key);
+      if(temOc&&!f._ocKeys.has(ocKey)){f._ocKeys.add(ocKey);f.ocs.push(oc);DQ.ocExtra++}else DQ.dup++;
+      if(JP[rec.just]>JP[f.just])f.just=rec.just;
+      if(!f.idFalta&&rec.idFalta)f.idFalta=rec.idFalta;
+      continue}
+    rec.ocs=temOc?[oc]:[];rec._ocKeys=new Set(temOc?[ocKey]:[]);seen.set(key,rec);
+    if(!dataFalta)DQ.semData++;if(rec.instr==='(não informado)')DQ.semInstr++;
     const tv=isBlank(r.total)?'vazio':String(r.total).trim();DQ.totalVals[tv]=(DQ.totalVals[tv]||0)+1;
-    rec.hasOc=!!(rec.dataOc||rec.grupo||rec.tipo);
-    if(rec.hasOc){const n=[rec.dataOc,rec.grupo,rec.tipo,rec.atend].filter(Boolean).length;rec.acomp=n===4?'Completo':rec.atend?'Parcial':'Verificar'}else rec.acomp='';
     out.push(rec);
+  }
+  for(const rec of out){/* consolida as ocorrências de cada falta */
+    delete rec._ocKeys;if(rec.just==='Não informado')DQ.justNI++;
+    for(const o of rec.ocs){const n=[o.dataOc,o.grupo,o.tipo,o.atend].filter(Boolean).length;o.acomp=n===4?'Completo':o.atend?'Parcial':'Verificar'}
+    rec.ocs.sort((a,b)=>(b.dataOc?+b.dataOc:0)-(a.dataOc?+a.dataOc:0));
+    rec.hasOc=rec.ocs.length>0;rec.nOc=rec.ocs.length;
+    const uj=k=>[...new Set(rec.ocs.map(o=>o[k]).filter(Boolean))].join(' | ');
+    rec.grupo=uj('grupo');rec.tipo=uj('tipo');rec.atend=uj('atend');rec.obs=uj('obs');rec.dataOc=rec.ocs.find(o=>o.dataOc)?.dataOc||null;
+    rec.acomp=!rec.hasOc?'':rec.ocs.some(o=>o.acomp==='Verificar')?'Verificar':rec.ocs.every(o=>o.acomp==='Completo')?'Completo':'Parcial';
   }
   return out;
 }
@@ -525,9 +543,14 @@ function sample(){
   return rows;
 }
 
+/* ---------- ocorrências (uma falta pode ter várias) ---------- */
+const OCK=new Set(['grupo','tipo','atend']);
+const ocVals=(r,k)=>r.ocs.length?r.ocs.map(o=>o[k]||'(vazio)'):['(vazio)'];
+const allOcs=rows=>rows.flatMap(r=>r.ocs.map(o=>({...o,r,instr:r.instr,estado:r.estado,empresa:r.empresa,dataFalta:r.dataFalta})));
+
 /* ---------- filtros ---------- */
 function passF(r,ex){
-  for(const[k]of FKEYS){if(k===ex||!F[k])continue;const v=k==='just'?r.just:(r[k]||'(vazio)');if(v!==F[k])return false}
+  for(const[k]of FKEYS){if(k===ex||!F[k])continue;if(OCK.has(k)){if(!ocVals(r,k).includes(F[k]))return false;continue}const v=k==='just'?r.just:(r[k]||'(vazio)');if(v!==F[k])return false}
   return true;
 }
 function inDate(r,de,ate){if(!de&&!ate)return true;if(!r.dataFalta)return false;const s=iso(r.dataFalta);return(!de||s>=de)&&(!ate||s<=ate)}
@@ -539,7 +562,7 @@ function prevWindow(){
   return{de:iso(pa),ate:iso(pb),a,b};
 }
 function buildFilters(){
-  const opts=k=>[...new Set(DATA.map(r=>k==='just'?r.just:(r[k]||'(vazio)')))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true}));
+  const opts=k=>[...new Set(DATA.flatMap(r=>OCK.has(k)?ocVals(r,k):[k==='just'?r.just:(r[k]||'(vazio)')]))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true}));
   let h=`<label>De<input type="date" id="f_de" value="${esc(F.de)}"></label><label>Até<input type="date" id="f_ate" value="${esc(F.ate)}"></label>`;
   for(const[k,l]of fkeys())h+=`<label>${esc(l)}<select id="f_${k}"><option value="">Todos</option>${opts(k).map(o=>`<option${o===F[k]?' selected':''}>${esc(o)}</option>`).join('')}</select></label>`;
   $('#fgrid').innerHTML=h;
@@ -561,9 +584,9 @@ function group(rows,fn){const m=new Map();for(const r of rows){const k=fn(r);if(
 function rankCompetition(list,val,asc){const s=[...list].sort((a,b)=>asc?val(a)-val(b):val(b)-val(a));let last=null,pos=0;s.forEach((x,i)=>{const v=val(x);if(last===null||Math.abs(v-last)>1e-9){pos=i+1;last=v}x.pos=pos});return s}
 const mode=arr=>{const m=new Map();arr.filter(Boolean).forEach(v=>m.set(v,(m.get(v)||0)+1));let b='',n=0;m.forEach((c,k)=>{if(c>n){n=c;b=k}});return b?{k:b,n}:null};
 function instrStats(rows){
-  return[...group(rows,r=>r.instr)].map(([n,rs])=>{const j=rs.filter(r=>r.just==='Justificada').length,oc=rs.filter(r=>r.hasOc);
+  return[...group(rows,r=>r.instr)].map(([n,rs])=>{const j=rs.filter(r=>r.just==='Justificada').length,oc=allOcs(rs);
     return{n,tot:rs.length,j,nj:rs.filter(r=>r.just==='Não justificada').length,ni:rs.filter(r=>r.just==='Não informado').length,turmas:new Set(rs.map(r=>r.turma)).size,jovens:new Set(rs.map(r=>r.ra)).size,
-      oc:oc.length,ocAt:oc.filter(r=>r.atend).length,g:mode(oc.map(r=>r.grupo)),t:mode(oc.map(r=>r.tipo))}});
+      oc:oc.length,ocF:rs.filter(r=>r.hasOc).length,ocAt:oc.filter(o=>o.atend).length,g:mode(oc.map(o=>o.grupo)),t:mode(oc.map(o=>o.tipo))}});
 }
 
 /* ---------- render: cabeçalho ---------- */
@@ -590,7 +613,7 @@ function renderKPIs(rows){
     card('all','t','var(--brand-1)','Total de faltas',nf.format(k.t),`${nf.format(new Set(rows.map(r=>r.ra)).size)} jovens distintos`,d(k.t,p.t,false,true),'Cada falta = combinação única de RA + turma + data + módulo.'),
     card('just','j','var(--just)','Justificadas',nf.format(k.j),`${pf(k.pj)} do total`,d(k.j,p.j,false,null)),
     card('nj','n','var(--nj)','Não justificadas',nf.format(k.nj),`${pf(k.t?k.nj/k.t:NaN)} do total`,d(k.nj,p.nj,false,true),`Registros com JUSTIFICADA vazia (${nf.format(k.t-k.j-k.nj)}) não entram aqui nem nas justificadas.`),
-    card('oc','o','var(--oc)','Faltas com ocorrência',nf.format(k.oc),`${pf(k.po)} do total`,d(k.oc,p.oc,false,null)),
+    card('oc','o','var(--oc)','Faltas com ocorrência',nf.format(k.oc),`${pf(k.po)} do total · ${nf.format(allOcs(rows).length)} ocorrência(s)`,d(k.oc,p.oc,false,null)),
     INS()?'':card('instr','i','var(--brand-2)','Instrutores com registros',nf.format(k.ins),'no período filtrado',d(k.ins,p.ins,false,null)),
     card('just','p','var(--just)','% de justificativas',pf(k.pj),'justificadas ÷ total',d(k.pj,p.pj,true,null),'',`<span class="meter"><i style="width:${(k.pj||0)*100}%;background:var(--just)"></i></span>`),
     card('oc','p','var(--oc)','% com ocorrência',pf(k.po),'com ocorrência ÷ total',d(k.po,p.po,true,null),'',`<span class="meter"><i style="width:${(k.po||0)*100}%;background:var(--oc)"></i></span>`)
@@ -610,10 +633,10 @@ function renderRanks(rows,pre){
   const pc=p=>p<=3?` p${p}`:'';
   $('#r1').innerHTML=`<thead><tr><th>Pos.</th><th>Instrutor</th><th style="text-align:right">Faltas</th><th style="text-align:right">Turmas</th><th style="text-align:right">Jovens</th><th style="text-align:right">${r1mode==='abs'?'Faltas/turma':r1mode==='turma'?'Faltas/turma':'Faltas/jovem'}</th></tr></thead><tbody>`+
     r1.map(x=>`<tr class="clk${eu(x)}" data-n="${esc(x.n)}"><td><span class="pos${pc(x.pos)}">${x.pos}º</span></td><td>${esc(x.n)}</td><td class="n">${nf.format(x.tot)}</td><td class="n">${x.turmas}</td><td class="n">${x.jovens}</td><td class="n">${(r1mode==='jovem'?x.tot/x.jovens:x.tot/x.turmas).toLocaleString('pt-BR',{maximumFractionDigits:2})}</td></tr>`).join('')+'</tbody>';
-  const r2=rankCompetition(st.filter(x=>x.j>0),x=>x.j,false);
-  $('#r2').innerHTML=r2.length?`<thead><tr><th>Pos.</th><th>Instrutor</th><th style="text-align:right">Justificadas</th><th style="text-align:right">% do total</th></tr></thead><tbody>`+r2.map(x=>`<tr class="clk${eu(x)}" data-n="${esc(x.n)}"><td><span class="pos${pc(x.pos)}">${x.pos}º</span></td><td>${esc(x.n)}</td><td class="n">${nf.format(x.j)}</td><td class="n">${pf(x.j/x.tot)} <span class="meter" style="display:inline-flex;width:50px;vertical-align:middle"><i style="width:${x.j/x.tot*100}%;background:var(--just)"></i></span></td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="empty">Nenhuma falta justificada no período.</td></tr></tbody>';
+  const r2=rankCompetition(st.filter(x=>x.tot>0),x=>x.j/x.tot,false);/* ranking pela % de justificadas */
+  $('#r2').innerHTML=r2.length?`<thead><tr><th>Pos.</th><th>Instrutor</th><th style="text-align:right">% justificadas</th><th style="text-align:right">Justificadas</th></tr></thead><tbody>`+r2.map(x=>`<tr class="clk${eu(x)}" data-n="${esc(x.n)}"><td><span class="pos${pc(x.pos)}">${x.pos}º</span></td><td>${esc(x.n)}</td><td class="n"><b>${pf(x.j/x.tot)}</b> <span class="meter" style="display:inline-flex;width:50px;vertical-align:middle"><i style="width:${x.j/x.tot*100}%;background:var(--just)"></i></span></td><td class="n">${nf.format(x.j)} <small style="color:var(--mut)">de ${nf.format(x.tot)}</small></td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="empty">Nenhuma falta justificada no período.</td></tr></tbody>';
   const r3=rankCompetition(st.filter(x=>x.oc>0),x=>x.oc,false);
-  $('#r3').innerHTML=r3.length?`<thead><tr><th>Pos.</th><th>Instrutor</th><th style="text-align:right">Ocorr.</th><th>Grupo predominante</th><th>Tipo mais recorrente</th><th style="text-align:right">Com atendimento</th></tr></thead><tbody>`+r3.map(x=>`<tr class="clk${eu(x)}" data-n="${esc(x.n)}"><td><span class="pos${pc(x.pos)}">${x.pos}º</span></td><td>${esc(x.n)}</td><td class="n">${nf.format(x.oc)} <small style="color:var(--mut)">(${pf(x.oc/x.tot)})</small></td><td>${esc(x.g?x.g.k:'—')}</td><td>${esc(x.t?x.t.k:'—')}</td><td class="n">${nf.format(x.ocAt)} <small style="color:var(--mut)">de ${x.oc}</small></td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="empty">Nenhuma ocorrência no período.</td></tr></tbody>';
+  $('#r3').innerHTML=r3.length?`<thead><tr><th>Pos.</th><th>Instrutor</th><th style="text-align:right">Ocorrências</th><th>Grupo predominante</th><th>Tipo mais recorrente</th><th style="text-align:right">Com atendimento</th></tr></thead><tbody>`+r3.map(x=>`<tr class="clk${eu(x)}" data-n="${esc(x.n)}"><td><span class="pos${pc(x.pos)}">${x.pos}º</span></td><td>${esc(x.n)}</td><td class="n">${nf.format(x.oc)} <small style="color:var(--mut)">em ${nf.format(x.ocF??x.oc)} falta(s)</small></td><td>${esc(x.g?x.g.k:'—')}</td><td>${esc(x.t?x.t.k:'—')}</td><td class="n">${nf.format(x.ocAt)} <small style="color:var(--mut)">de ${nf.format(x.oc)}</small></td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="empty">Nenhuma ocorrência no período.</td></tr></tbody>';
   if(ins)return;/* instrutor: ranking só informativo (não abre registros de outros) */
   document.querySelectorAll('#podium .step,#r1 tr.clk,#r2 tr.clk,#r3 tr.clk').forEach(el=>el.addEventListener('click',()=>{selInstr(el.dataset.n,true);toast(`Registros de ${el.dataset.n}`)}));
 }
@@ -635,19 +658,20 @@ const justParts=rs=>[[rs.filter(r=>r.just==='Justificada').length,'var(--just)',
 
 /* ---------- ocorrências ---------- */
 function renderOc(rows){
-  const oc=rows.filter(r=>r.hasOc);const n=oc.length;
-  const c={Completo:0,Parcial:0,Verificar:0};oc.forEach(r=>c[r.acomp]++);
-  $('#acomp').innerHTML=[['oc',n,'Faltas com ocorrência','var(--oc-ink)'],['atend',oc.filter(r=>r.atend).length,'Com responsável pelo atendimento','var(--ok)'],['comp',c.Completo,'Registro completo (4 campos)','var(--ok)'],['verif',c.Verificar,'Sem atendimento registrado — verificar','var(--warn)']]
+  /* contagem por OCORRÊNCIA: uma falta pode ter mais de uma */
+  const oc=allOcs(rows);const n=oc.length;const nf1=rows.filter(r=>r.hasOc).length;
+  const c={Completo:0,Parcial:0,Verificar:0};oc.forEach(o=>c[o.acomp]++);
+  $('#acomp').innerHTML=[['oc',n,`Ocorrências registradas · em ${nf.format(nf1)} falta(s)`,'var(--oc-ink)'],['atend',oc.filter(o=>o.atend).length,'Com responsável pelo atendimento','var(--ok)'],['comp',c.Completo,'Registro completo (4 campos)','var(--ok)'],['verif',c.Verificar,'Sem atendimento registrado — verificar','var(--warn)']]
     .map(([s,v,l,col])=>`<button class="ac" data-s="${s}"><b style="color:${col}">${nf.format(v)}</b><span>${l}${n&&s!=='oc'?` · ${pf(v/n)}`:''}</span></button>`).join('');
   $('#acomp').querySelectorAll('.ac').forEach(b=>b.addEventListener('click',()=>{scope=b.dataset.s;page=0;renderTable();document.getElementById('detalhe').scrollIntoView()}));
-  const fields=[['DATAOCORRENCIA',r=>r.dataOc],['GRUPO_OCORRENCIA',r=>r.grupo],['TIPO_OCORRENCIA',r=>r.tipo],['ATENDIMENTO_RESPONSAVEL',r=>r.atend]];
-  $('#fieldfill').innerHTML=`<div style="font-size:12.5px;color:var(--mut);font-weight:600">Preenchimento dos campos nas faltas com ocorrência</div>`+fields.map(([l,f])=>{const v=oc.filter(f).length;return`<div class="bar" style="cursor:default"><span class="k" style="font-size:12px">${l}</span><span class="t"><i style="width:${n?v/n*100:0}%;background:var(--brand-2)"></i></span><span class="v">${pf(n?v/n:NaN)}</span></div>`}).join('');
-  bars('bGrupo',countBy(oc,r=>r.grupo||'(não informado)'),'grupo',{color:'var(--oc)',total:n});
-  bars('bTipo',countBy(oc,r=>r.tipo||'(não informado)'),'tipo',{color:'var(--oc)',total:n});
-  if(!INS())bars('bOcInstr',countBy(oc,r=>r.instr).map(e=>({...e,parts:[[e.rs.filter(r=>r.atend).length,'var(--ok)','Com atendimento'],[e.rs.filter(r=>!r.atend).length,'var(--oc)','Sem atendimento']]})),'instr');
-  bars('bAtend',countBy(oc,r=>r.atend||'(vazio)'),'atend',{color:'var(--ok)',total:n});
-  bars('bOcUF',countBy(oc,r=>r.estado||'(vazio)'),'estado',{color:'var(--oc)'});
-  if(!INS())bars('bOcEmp',countBy(oc,r=>r.empresa||'(vazio)'),'empresa',{color:'var(--oc)'});
+  const fields=[['DATAOCORRENCIA',o=>o.dataOc],['GRUPO_OCORRENCIA',o=>o.grupo],['TIPO_OCORRENCIA',o=>o.tipo],['ATENDIMENTO_RESPONSAVEL',o=>o.atend]];
+  $('#fieldfill').innerHTML=`<div style="font-size:12.5px;color:var(--mut);font-weight:600">Preenchimento dos campos nas ocorrências</div>`+fields.map(([l,f])=>{const v=oc.filter(f).length;return`<div class="bar" style="cursor:default"><span class="k" style="font-size:12px">${l}</span><span class="t"><i style="width:${n?v/n*100:0}%;background:var(--brand-2)"></i></span><span class="v">${pf(n?v/n:NaN)}</span></div>`}).join('');
+  bars('bGrupo',countBy(oc,o=>o.grupo||'(não informado)'),'grupo',{color:'var(--oc)',total:n});
+  bars('bTipo',countBy(oc,o=>o.tipo||'(não informado)'),'tipo',{color:'var(--oc)',total:n});
+  if(!INS())bars('bOcInstr',countBy(oc,o=>o.instr).map(e=>({...e,parts:[[e.rs.filter(o=>o.atend).length,'var(--ok)','Com atendimento'],[e.rs.filter(o=>!o.atend).length,'var(--oc)','Sem atendimento']]})),'instr');
+  bars('bAtend',countBy(oc,o=>o.atend||'(vazio)'),'atend',{color:'var(--ok)',total:n});
+  bars('bOcUF',countBy(oc,o=>o.estado||'(vazio)'),'estado',{color:'var(--oc)'});
+  if(!INS())bars('bOcEmp',countBy(oc,o=>o.empresa||'(vazio)'),'empresa',{color:'var(--oc)'});
 }
 
 /* ---------- gráficos ---------- */
@@ -669,7 +693,7 @@ function renderCharts(rows){
   const o2=baseOpts();o2.interaction={mode:'index',intersect:false};o2.onClick=o.onClick;
   o2.plugins.tooltip.callbacks={label:i=>`${i.dataset.label}: ${nf.format(i.raw)}`};
   const oc=css('--oc'),ok=css('--ok');
-  chart('cOcMes',{type:'line',data:{labels,datasets:[{label:'Faltas com ocorrência',data:ms.map(([,rs])=>rs.filter(r=>r.hasOc).length),borderColor:oc,backgroundColor:oc,borderWidth:2,pointRadius:4,pointBorderColor:css('--panel'),pointBorderWidth:2,tension:.25},{label:'Com atendimento registrado',data:ms.map(([,rs])=>rs.filter(r=>r.hasOc&&r.atend).length),borderColor:ok,backgroundColor:ok,borderWidth:2,pointRadius:4,pointBorderColor:css('--panel'),pointBorderWidth:2,tension:.25,borderDash:[5,4]}]},options:{...o2,plugins:{...o2.plugins,legend:{display:true,position:'top',align:'start',labels:{color:css('--mut'),boxWidth:10,boxHeight:10,usePointStyle:true}}}}});
+  chart('cOcMes',{type:'line',data:{labels,datasets:[{label:'Ocorrências',data:ms.map(([,rs])=>allOcs(rs).length),borderColor:oc,backgroundColor:oc,borderWidth:2,pointRadius:4,pointBorderColor:css('--panel'),pointBorderWidth:2,tension:.25},{label:'Com atendimento registrado',data:ms.map(([,rs])=>allOcs(rs).filter(o=>o.atend).length),borderColor:ok,backgroundColor:ok,borderWidth:2,pointRadius:4,pointBorderColor:css('--panel'),pointBorderWidth:2,tension:.25,borderDash:[5,4]}]},options:{...o2,plugins:{...o2.plugins,legend:{display:true,position:'top',align:'start',labels:{color:css('--mut'),boxWidth:10,boxHeight:10,usePointStyle:true}}}}});
   // scatter (comparativo entre instrutores: só na visão administrativa)
   if(!INS()){
   const st=instrStats(rows);const o3=baseOpts();o3.scales.x={title:{display:true,text:'Faltas registradas',color:css('--mut')},grid:{color:css('--line')},ticks:{color:css('--mut')},beginAtZero:true};
@@ -689,7 +713,7 @@ function renderCharts(rows){
   bars('bUF',countBy(rows,r=>r.estado||'(vazio)'),'estado',{total:t});
   if(!INS())bars('bEmp',countBy(rows,r=>r.empresa||'(vazio)'),'empresa',{total:t});
   bars('bMod',countBy(rows,r=>r.modulo||'(vazio)').sort((a,b)=>a.k.localeCompare(b.k,'pt-BR',{numeric:true})),'modulo',{total:t});
-  bars('bGrupo2',countBy(rows.filter(r=>r.hasOc),r=>r.grupo||'(não informado)'),'grupo',{color:'var(--oc)'});
+  bars('bGrupo2',countBy(allOcs(rows),o=>o.grupo||'(não informado)'),'grupo',{color:'var(--oc)'});
 }
 
 /* ---------- tabela ---------- */
@@ -697,28 +721,42 @@ const COLS=[['_st','Situação'],['ra','RA'],['nome','NOME'],['turma','CODTURMA'
 /* visão do instrutor: colunas originais pedidas + colunas editáveis do checklist (logo após o nome do jovem) */
 const COLS_INS=[['_st','Situação'],['ra','RA'],['nome','NOME'],...CKF.map(([f,l])=>['ck_'+f,l]),['ck_data','ÚLTIMA ALTERAÇÃO'],['turma','CODTURMA'],['modulo','MODULO'],['just','JUSTIFICADA'],['instr','Criada por'],['dataFalta','DATA_FALTA'],['empresa','EMPRESA'],['estado','ESTADO'],['dataOc','DATAOCORRENCIA'],['grupo','GRUPO_OCORRENCIA'],['tipo','TIPO_OCORRENCIA'],['atend','ATENDIMENTO_RESPONSAVEL'],['obs','OBSERVACOES']];
 const cols=()=>INS()?COLS_INS:COLS;
-const SCOPES={just:['Justificadas',r=>r.just==='Justificada'],nj:['Não justificadas',r=>r.just==='Não justificada'],oc:['Com ocorrência',r=>r.hasOc],atend:['Ocorrências com atendimento',r=>r.hasOc&&r.atend],comp:['Ocorrências completas',r=>r.acomp==='Completo'],verif:['Ocorrências sem atendimento registrado',r=>r.acomp==='Verificar'],
+const SCOPES={just:['Justificadas',r=>r.just==='Justificada'],nj:['Não justificadas',r=>r.just==='Não justificada'],oc:['Com ocorrência',r=>r.hasOc],atend:['Ocorrências com atendimento',r=>r.ocs.some(o=>o.atend)],comp:['Ocorrências completas',r=>r.ocs.some(o=>o.acomp==='Completo')],verif:['Ocorrências sem atendimento registrado',r=>r.ocs.some(o=>!o.atend)],
   ck_none:['Sem acompanhamento iniciado',r=>!ckStarted(r)],...Object.fromEntries(CKF.map(([f,,l])=>['ck_'+f,[l,r=>ckVal(r,f)]]))};
 /* última alteração: a do instrutor (manual) ou, se o acompanhamento veio da base, a data da atualização da base */
 const ckFonte=r=>{const c=ckOf(r);return c&&c.data_ultima_alteracao?'instrutor':r.hasOc?'base':''};
 const ckDate=r=>{const f=ckFonte(r);return f==='instrutor'?new Date(ckOf(r).data_ultima_alteracao):f==='base'?(SOURCE.updated||null):null};
 const ckPor=r=>ckFonte(r)==='instrutor'?(ckOf(r).atualizado_por||''):ckFonte(r)==='base'?'Atualização da base':'';
 const cell=(r,k)=>{if(k==='ck_data'){const d=ckDate(r);return d?fDT(d)+(ckFonte(r)==='base'?' · base':''):''}if(k.startsWith('ck_'))return ckVal(r,k.slice(3))?'Sim':'Não';
+  if(k==='dataOc')return[...new Set(r.ocs.map(o=>o.dataOc?fD(o.dataOc):'').filter(Boolean))].join(' | ');
   const v=r[k];if(k==='desl')return v?fD(v):(isBlank(r.deslRaw)?'':String(r.deslRaw));if(v instanceof Date)return k==='criadaEm'?fDT(v):fD(v);return v??''};
-const stTxt=r=>[r.just,r.hasOc?'Ocorrência':'',r.acomp==='Verificar'?'Verificar atendimento':r.hasOc?'Atendimento registrado':'',INS()?(ckStarted(r)?'Em acompanhamento':'Não acompanhada'):''].filter(Boolean).join(' ');
+/* etiquetas da coluna Situação (usadas também no filtro com opções) */
+const stTags=r=>[r.just,r.hasOc?'Com ocorrência':'Sem ocorrência',r.nOc>1?'Mais de uma ocorrência':'',r.acomp==='Verificar'?'Verificar atendimento':r.hasOc?'Atendimento registrado':'',INS()?(ckStarted(r)?'Em acompanhamento':'Não acompanhada'):''].filter(Boolean);
+const stTxt=r=>stTags(r).join(' ');
+/* colunas com filtro por lista de opções */
+const tipoVals=r=>r.ocs.length?[...new Set(r.ocs.map(o=>o.tipo||'(não informado)'))]:['(sem ocorrência)'];
+const SELF={_st:r=>stTags(r),modulo:r=>[r.modulo||'(vazio)'],just:r=>[r.just],tipo:tipoVals};
+const selOpts=k=>k.startsWith('ck_')?['Sim','Não']:k==='_st'?['Justificada','Não justificada','Não informado','Com ocorrência','Sem ocorrência','Mais de uma ocorrência','Atendimento registrado','Verificar atendimento',...(INS()?['Em acompanhamento','Não acompanhada']:[])]:[...new Set(DATA.flatMap(SELF[k]))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true}));
+const isSel=k=>!!SELF[k]||(k.startsWith('ck_')&&k!=='ck_data');
 const sortVal=(r,k)=>k==='_st'?stTxt(r):k==='ck_data'?ckDate(r):k.startsWith('ck_')?cell(r,k):r[k];
 function tableRows(){
   let rows=cur();if(scope&&SCOPES[scope])rows=rows.filter(SCOPES[scope][1]);
   const q=search.trim().toLowerCase();if(q)rows=rows.filter(r=>r.nome.toLowerCase().includes(q)||r.ra.toLowerCase().includes(q));
-  for(const k in colF){const q2=colF[k].trim().toLowerCase();if(!q2)continue;rows=rows.filter(r=>String(k==='_st'?stTxt(r):cell(r,k)).toLowerCase().includes(q2))}
-  const k=sortK;rows=[...rows].sort((a,b)=>{let x=sortVal(a,k),y=sortVal(b,k);if(x instanceof Date||y instanceof Date){x=x?+x:-Infinity;y=y?+y:-Infinity;return(x-y)*sortD}return String(x??'').localeCompare(String(y??''),'pt-BR',{numeric:true})*sortD});
+  for(const k in colF){const v=colF[k];if(!v)continue;
+    if(SELF[k]){rows=rows.filter(r=>SELF[k](r).includes(v));continue}
+    if(isSel(k)){rows=rows.filter(r=>cell(r,k)===v);continue}
+    const q2=v.trim().toLowerCase();if(!q2)continue;rows=rows.filter(r=>String(cell(r,k)).toLowerCase().includes(q2))}
+  /* ordenação; desempate: falta mais recente primeiro (DATA_FALTA, depois "Criada em") */
+  const k=sortK,tm=d=>d?+d:-Infinity,rec=(a,b)=>(tm(b.dataFalta)-tm(a.dataFalta))||(tm(b.criadaEm)-tm(a.criadaEm));
+  rows=[...rows].sort((a,b)=>{let x=sortVal(a,k),y=sortVal(b,k),c;if(x instanceof Date||y instanceof Date||x==null&&y instanceof Date){c=(tm(x)-tm(y))*sortD}else c=String(x??'').localeCompare(String(y??''),'pt-BR',{numeric:true})*sortD;return c||rec(a,b)});
   return rows;
 }
 function buildTableHead(){
   for(const k in colF)delete colF[k];
-  $('#det').innerHTML=`<thead><tr>${cols().map(([k,l])=>`<th data-k="${k}"${k.startsWith('ck_')?' class="ckh"':''} title="Ordenar">${esc(l)} <span data-arrow></span></th>`).join('')}</tr><tr class="cf">${cols().map(([k,l])=>`<th><input data-cf="${k}" placeholder="${k.startsWith('ck_')&&k!=='ck_data'?'Sim / Não':'Filtrar'}" aria-label="Filtrar ${esc(l)}"></th>`).join('')}</tr></thead><tbody></tbody>`;
-  $('#det').querySelectorAll('tr:first-child th').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;if(sortK===k)sortD*=-1;else{sortK=k;sortD=1}renderTable()}));
-  $('#det').querySelectorAll('[data-cf]').forEach(i=>i.addEventListener('input',()=>{colF[i.dataset.cf]=i.value;page=0;renderTable()}));
+  const flt=([k,l])=>isSel(k)?`<th><select data-cf="${k}" aria-label="Filtrar ${esc(l)}"><option value="">Todos</option>${selOpts(k).map(o=>`<option>${esc(o)}</option>`).join('')}</select></th>`:`<th><input data-cf="${k}" placeholder="Filtrar" aria-label="Filtrar ${esc(l)}"></th>`;
+  $('#det').innerHTML=`<thead><tr>${cols().map(([k,l])=>`<th data-k="${k}"${k.startsWith('ck_')?' class="ckh"':''} title="Ordenar">${esc(l)} <span data-arrow></span></th>`).join('')}</tr><tr class="cf">${cols().map(flt).join('')}</tr></thead><tbody></tbody>`;
+  $('#det').querySelectorAll('tr:first-child th').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;if(sortK===k)sortD*=-1;else{sortK=k;sortD=(k==='dataFalta'||k==='criadaEm'||k==='dataOc'||k==='ck_data')?-1:1}renderTable()}));
+  $('#det').querySelectorAll('[data-cf]').forEach(i=>i.addEventListener(i.tagName==='SELECT'?'change':'input',()=>{colF[i.dataset.cf]=i.value;page=0;renderTable()}));
 }
 const ckCell=(r,f)=>{const on=ckVal(r,f),lab=CKF.find(x=>x[0]===f)[1];
   if(ckBase(r,f)&&r.idFalta)return `<td class="ck" title="Ocorrência já registrada na base (DATAOCORRENCIA/GRUPO/TIPO)"><label class="tg"><input type="checkbox" checked disabled aria-label="${esc(lab)} — registrada na base"><span>Sim · base</span></label></td>`;
@@ -730,7 +768,7 @@ function renderTable(){
   $('#det').querySelectorAll('[data-arrow]').forEach(s=>{s.textContent=s.parentElement.dataset.k===sortK?(sortD>0?'▲':'▼'):''});
   const jb=r=>r.just==='Justificada'?'<span class="badge b-j">✓ Justificada</span>':r.just==='Não justificada'?'<span class="badge b-n">✕ Não justificada</span>':'<span class="badge b-i">? Não informado</span>';
   $('#det tbody').innerHTML=sl.length?sl.map(r=>{const na=ins&&!ckStarted(r);
-    return `<tr class="${r.just==='Justificada'?'rj':r.just==='Não justificada'?'rn':'ri'}${na?' na':''}"><td>${na?'<span class="badge b-w" title="Nenhum item do checklist marcado">Não acompanhada</span> ':''}${r.hasOc?'<span class="badge b-o">Ocorrência</span> ':''}${r.acomp==='Verificar'?'<span class="badge b-w" title="Ocorrência sem ATENDIMENTO_RESPONSAVEL">Verificar</span>':r.hasOc?'<span class="badge b-ok" title="Atendimento registrado">Atendimento</span>':''}</td>`+
+    return `<tr class="${r.just==='Justificada'?'rj':r.just==='Não justificada'?'rn':'ri'}${na?' na':''}"><td>${na?'<span class="badge b-w" title="Nenhum item do checklist marcado">Não acompanhada</span> ':''}${r.hasOc?`<span class="badge b-o">${r.nOc>1?r.nOc+' ocorrências':'Ocorrência'}</span> `:''}${r.acomp==='Verificar'?'<span class="badge b-w" title="Ocorrência sem ATENDIMENTO_RESPONSAVEL">Verificar</span>':r.hasOc?'<span class="badge b-ok" title="Atendimento registrado">Atendimento</span>':''}</td>`+
     C.slice(1).map(([k])=>k==='just'?`<td>${jb(r)}</td>`:k==='ck_data'?`<td title="${esc(ckPor(r)?'por '+ckPor(r):'')}">${esc(cell(r,k))||'<span style="color:var(--mut)">—</span>'}</td>`:k.startsWith('ck_')?ckCell(r,k.slice(3)):`<td${k==='obs'?' class="obs"':''} title="${esc(cell(r,k))}">${esc(cell(r,k))}</td>`).join('')+'</tr>'}).join(''):`<tr><td colspan="${C.length}" class="empty">Nenhum registro encontrado.</td></tr>`;
   $('#pInfo').textContent=rows.length?`${nf.format(page*PS+1)}–${nf.format(Math.min(rows.length,page*PS+PS))} de ${nf.format(rows.length)} registros · página ${page+1} de ${pages}`:'0 registros';
   $('#pPrev').disabled=page===0;$('#pNext').disabled=page>=pages-1;
@@ -802,12 +840,13 @@ function renderDQ(){
   $('#dq').innerHTML=`<div class="acomp">
    <div class="ac"><b>${nf.format(DQ.lidas)}</b><span>linhas lidas na fonte</span></div>
    <div class="ac"><b>${nf.format(DATA.length)}</b><span>faltas consideradas</span></div>
-   <div class="ac"><b>${nf.format(DQ.dup)}</b><span>duplicadas desconsideradas</span></div>
+   <div class="ac"><b>${nf.format(DQ.ocExtra||0)}</b><span>ocorrências adicionais somadas a faltas já existentes</span></div>
+   <div class="ac"><b>${nf.format(DQ.dup)}</b><span>linhas repetidas desconsideradas</span></div>
    <div class="ac"><b>${nf.format(DQ.totais)}</b><span>linhas de total/sem RA ignoradas</span></div>
    <div class="ac"><b>${nf.format(DQ.semData)}</b><span>sem DATA_FALTA válida (fora dos filtros de período)</span></div>
    <div class="ac"><b>${nf.format(DQ.justNI)}</b><span>com JUSTIFICADA vazia</span></div></div>
    <ul style="margin:14px 0 0;padding-left:20px;color:var(--mut);font-size:14px">
-   <li><b>Granularidade:</b> 1 falta = combinação única de RA + CODTURMA + DATA_FALTA + MODULO. Linhas repetidas não são contadas de novo; a fonte original não é alterada.</li>
+   <li><b>Granularidade:</b> 1 falta = combinação única de RA + CODTURMA + DATA_FALTA + MODULO. Quando a mesma falta aparece em mais de uma linha com ocorrências diferentes, a falta conta uma vez e cada ocorrência (acompanhamento) é somada; linhas idênticas são desconsideradas. A fonte original não é alterada.</li>
    <li><b>Total Geral:</b> exibido no detalhamento, mas não somado aos indicadores, para não contar novamente valores agregados. Valores encontrados — ${tv||'nenhum'}.</li>
    <li><b>Instrutor:</b> campo “Criada por”. <b>Jovem:</b> RA. <b>Referência temporal:</b> DATA_FALTA.</li>
    <li><b>Ocorrência:</b> DATAOCORRENCIA, GRUPO_OCORRENCIA ou TIPO_OCORRENCIA preenchidos. <b>Acompanhamento:</b> “Completo” com os 4 campos; “Parcial” com responsável mas faltando campos; “Verificar” sem responsável indicado.</li>
@@ -823,7 +862,7 @@ async function renderRanksIns(){
   const{data,error}=await sb.rpc('ranking_instrutores',{p_de:F.de||null,p_ate:F.ate||null});
   if(RK.pend!==key)return;
   if(error){$('#podium').innerHTML=`<div class="empty" style="grid-column:1/-1">Não foi possível carregar o ranking: ${esc(error.message)}</div>`;return}
-  RK={key,pend:null,st:(data||[]).map(x=>({n:x.instrutor,k:x.chave,tot:x.total,j:x.justificadas,nj:x.nao_justificadas,ni:x.nao_informadas,turmas:Math.max(1,x.turmas),jovens:Math.max(1,x.jovens),oc:x.ocorrencias,ocAt:x.ocorrencias_atendidas,g:x.grupo_top?{k:x.grupo_top}:null,t:x.tipo_top?{k:x.tipo_top}:null}))};
+  RK={key,pend:null,st:(data||[]).map(x=>({n:x.instrutor,k:x.chave,tot:x.total,j:x.justificadas,nj:x.nao_justificadas,ni:x.nao_informadas,turmas:Math.max(1,x.turmas),jovens:Math.max(1,x.jovens),oc:x.ocorrencias,ocAt:x.ocorrencias_atendidas,ocF:x.faltas_com_ocorrencia,g:x.grupo_top?{k:x.grupo_top}:null,t:x.tipo_top?{k:x.tipo_top}:null}))};
   renderRanks([],RK.st);
 }
 function render(){const rows=cur();syncFilters();renderHeader(rows);renderCkKpis(rows);renderKPIs(rows);if(!INS())renderRanks(rows);else renderRanksIns();renderOc(rows);renderCharts(rows);renderTable()}
@@ -831,7 +870,7 @@ function load(rows,src){
   const d=prepare(rows);if(!d.length){toast('Nenhum registro válido encontrado no arquivo.');return false}
   DATA=d;SOURCE=src;const ce=DATA.map(r=>r.criadaEm).filter(Boolean);SOURCE.lastCreated=ce.length?new Date(Math.max(...ce)):null;
   if(!SOURCE.updated)SOURCE.updated=SOURCE.lastCreated;
-  for(const k in F)F[k]='';scope='';search='';$('#tSearch').value='';for(const k in colF)colF[k]='';page=0;
+  for(const k in F)F[k]='';scope='';search='';sortK='dataFalta';sortD=-1;$('#tSearch').value='';for(const k in colF)colF[k]='';page=0;
   buildFilters();buildTableHead();renderDQ();render();return true;
 }
 
@@ -934,7 +973,7 @@ async function readFile(f){
     if(!best||best.score<5)throw new Error('Não encontrei as colunas esperadas (RA, NOME, CODTURMA, JUSTIFICADA, Criada por, DATA_FALTA…).');
     const{out,badDates}=toDbRows(best.rows);const prev=prepare(best.rows);
     pending={rows:out,name:`${f.name} · aba ${best.n}`};
-    msg.textContent=`Prévia: ${nf.format(out.length)} linhas na aba “${best.n}” → ${nf.format(prev.length)} faltas únicas (${nf.format(DQ.dup)} repetidas, ${nf.format(DQ.totais)} linhas de total).`+(badDates?` Atenção: ${nf.format(badDates)} datas não reconhecidas serão gravadas vazias.`:'')+' Todas as linhas originais serão gravadas; a deduplicação é feita no painel.';
+    msg.textContent=`Prévia: ${nf.format(out.length)} linhas na aba “${best.n}” → ${nf.format(prev.length)} faltas únicas (${nf.format(DQ.ocExtra)} ocorrências adicionais, ${nf.format(DQ.dup)} repetidas, ${nf.format(DQ.totais)} linhas de total).`+(badDates?` Atenção: ${nf.format(badDates)} datas não reconhecidas serão gravadas vazias.`:'')+' Todas as linhas originais serão gravadas; a deduplicação é feita no painel.';
     $('#btnPublish').hidden=false;
   }catch(e){msg.textContent='Erro: '+e.message}
 }

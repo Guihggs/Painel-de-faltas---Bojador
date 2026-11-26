@@ -256,48 +256,57 @@ on conflict (id_falta) do update set criada_por = excluded.criada_por, visto_por
 
 -- ---------- Ranking de instrutores (pódio também na visão do instrutor) ----------
 -- Devolve SÓ totais por instrutor (nenhum registro individual), para qualquer usuário ativo do painel.
--- Mesmas regras do painel: 1 falta = RA + CODTURMA + DATA_FALTA + MODULO (repetidas contam uma vez);
--- ocorrência = DATAOCORRENCIA, GRUPO_OCORRENCIA ou TIPO_OCORRENCIA preenchidos. Filtro opcional de período.
-create or replace function public.ranking_instrutores(p_de date default null, p_ate date default null)
+-- Mesmas regras do painel: 1 falta = RA + CODTURMA + DATA_FALTA + MODULO (conta uma vez), e uma falta pode ter
+-- várias ocorrências (acompanhamentos), cada uma contada; linhas idênticas não contam de novo.
+-- Ocorrência = DATAOCORRENCIA, GRUPO_OCORRENCIA ou TIPO_OCORRENCIA preenchidos. Filtro opcional de período.
+drop function if exists public.ranking_instrutores(date, date);
+create function public.ranking_instrutores(p_de date default null, p_ate date default null)
 returns table (instrutor text, chave text, total integer, justificadas integer, nao_justificadas integer,
                nao_informadas integer, turmas integer, jovens integer, ocorrencias integer,
-               ocorrencias_atendidas integer, grupo_top text, tipo_top text)
+               faltas_com_ocorrencia integer, ocorrencias_atendidas integer, grupo_top text, tipo_top text)
 language plpgsql stable security definer set search_path = '' as $$
 begin
   if public.meu_papel() is null then
     raise exception 'sem acesso ao painel' using errcode = '42501';
   end if;
   return query
-  with u as (
-    select distinct on (public.id_falta(f)) f.*,
+  with b as (
+    select f.id, public.id_falta(f) as idf, pg_catalog.btrim(f.criada_por) as forma, f.ra, f.codturma, f.data_ocorrencia,
+      nullif(pg_catalog.btrim(coalesce(f.grupo_ocorrencia, '')), '') as grupo,
+      nullif(pg_catalog.btrim(coalesce(f.tipo_ocorrencia, '')), '') as tipo,
+      nullif(pg_catalog.btrim(coalesce(f.atendimento_responsavel, '')), '') as atend,
+      nullif(pg_catalog.btrim(coalesce(f.observacoes, '')), '') as obs,
       pg_catalog.translate(pg_catalog.lower(pg_catalog.btrim(coalesce(f.justificada, ''))), 'ãáàâéêíóôõúç', 'aaaaeeiooouc') as j
     from public.faltas f
     where nullif(pg_catalog.btrim(coalesce(f.criada_por, '')), '') is not null
       and (p_de is null or f.data_falta >= p_de) and (p_ate is null or f.data_falta <= p_ate)
-    order by public.id_falta(f), f.id
-  ), c as (
-    select public.norm_nome(u.criada_por) as k, pg_catalog.btrim(u.criada_por) as forma, u.ra, u.codturma,
-      u.j ~ '^(sim|s|yes|y|true|1|justificada|justificado)$' as just,
-      u.j ~ '^(nao|n|no|false|0|nao justificada|nao justificado|injustificada)$' as njust,
-      (u.data_ocorrencia is not null or nullif(pg_catalog.btrim(coalesce(u.grupo_ocorrencia, '')), '') is not null
-        or nullif(pg_catalog.btrim(coalesce(u.tipo_ocorrencia, '')), '') is not null) as oc,
-      nullif(pg_catalog.btrim(coalesce(u.atendimento_responsavel, '')), '') is not null as atend,
-      nullif(pg_catalog.btrim(coalesce(u.grupo_ocorrencia, '')), '') as grupo,
-      nullif(pg_catalog.btrim(coalesce(u.tipo_ocorrencia, '')), '') as tipo
-    from u
+  ), fl as (            -- uma linha por falta
+    select b.idf, (array_agg(b.forma order by b.id))[1] as forma, min(b.ra) as ra, min(b.codturma) as codturma,
+      bool_or(b.j ~ '^(sim|s|yes|y|true|1|justificada|justificado)$') as just,
+      bool_or(b.j ~ '^(nao|n|no|false|0|nao justificada|nao justificado|injustificada)$') as njust
+    from b group by b.idf
+  ), fk as (
+    select fl.*, public.norm_nome(fl.forma) as k from fl
+  ), oc as (            -- cada ocorrência distinta de cada falta
+    select distinct b.idf, b.data_ocorrencia, b.grupo, b.tipo, b.atend, b.obs
+    from b where b.data_ocorrencia is not null or b.grupo is not null or b.tipo is not null
+  ), af as (
+    select fk.k, (mode() within group (order by fk.forma))::text as nome, count(*)::integer as tot,
+      (count(*) filter (where fk.just))::integer as js,
+      (count(*) filter (where not fk.just and fk.njust))::integer as njs,
+      (count(*) filter (where not fk.just and not fk.njust))::integer as nis,
+      (count(distinct coalesce(fk.codturma, '')))::integer as tu, (count(distinct coalesce(fk.ra, '')))::integer as jo
+    from fk group by fk.k
+  ), ao as (
+    select fk.k, count(*)::integer as n, (count(distinct oc.idf))::integer as nf,
+      (count(*) filter (where oc.atend is not null))::integer as na,
+      (mode() within group (order by oc.grupo) filter (where oc.grupo is not null))::text as g,
+      (mode() within group (order by oc.tipo) filter (where oc.tipo is not null))::text as t
+    from oc join fk on fk.idf = oc.idf group by fk.k
   )
-  select (mode() within group (order by c.forma))::text, c.k,
-    count(*)::integer,
-    (count(*) filter (where c.just))::integer,
-    (count(*) filter (where c.njust))::integer,
-    (count(*) filter (where not c.just and not c.njust))::integer,
-    (count(distinct coalesce(c.codturma, '')))::integer,
-    (count(distinct coalesce(c.ra, '')))::integer,
-    (count(*) filter (where c.oc))::integer,
-    (count(*) filter (where c.oc and c.atend))::integer,
-    (mode() within group (order by c.grupo) filter (where c.oc and c.grupo is not null))::text,
-    (mode() within group (order by c.tipo) filter (where c.oc and c.tipo is not null))::text
-  from c group by c.k;
+  select af.nome, af.k, af.tot, af.js, af.njs, af.nis, af.tu, af.jo,
+    coalesce(ao.n, 0), coalesce(ao.nf, 0), coalesce(ao.na, 0), ao.g, ao.t
+  from af left join ao on ao.k = af.k;
 end $$;
 revoke execute on function public.ranking_instrutores(date, date) from public, anon;
 grant  execute on function public.ranking_instrutores(date, date) to authenticated;
