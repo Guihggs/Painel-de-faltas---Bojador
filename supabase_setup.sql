@@ -5,8 +5,8 @@
 
 -- O que este script cria/garante:
 --   • painel_usuarios, faltas, cargas (base original — a tabela "faltas" não tem estrutura alterada);
---   • RLS: administrador lê todas as faltas; instrutor lê só as que têm "Criada por" igual ao próprio nome
---     (comparação sem diferença de maiúsculas/minúsculas e sem espaços excedentes);
+--   • RLS: administrador lê todas as faltas; instrutor lê só as que têm "Criada por" igual ao próprio
+--     USUÁRIO (ex.: guilherme.bezerra = GUILHERME.BEZERRA) ou NOME, sem diferença de maiúsculas/minúsculas;
 --   • faltas_identificadores + checklist_acompanhamento_faltas (acompanhamento individual de cada falta,
 --     preservado quando uma nova base é publicada) e a função salvar_checklist.
 
@@ -84,6 +84,16 @@ $$;
 revoke execute on function public.meu_nome_norm() from public, anon;
 grant  execute on function public.meu_nome_norm() to authenticated;
 
+-- Valores que identificam quem está logado no campo "Criada por", já normalizados:
+-- o USUÁRIO do acesso (ex.: guilherme.bezerra = GUILHERME.BEZERRA) e, se preenchido, o NOME.
+create or replace function public.minhas_chaves()
+returns text[] language sql stable security definer set search_path = '' as $$
+  select coalesce(array_remove(array[public.norm_nome(usuario), public.norm_nome(nome)], null), '{}')
+  from public.painel_usuarios where user_id = auth.uid() and ativo
+$$;
+revoke execute on function public.minhas_chaves() from public, anon;
+grant  execute on function public.minhas_chaves() to authenticated;
+
 -- Identificador estável de cada falta (não depende do "id" da tabela, que muda a cada nova base).
 -- Mesma regra de unicidade usada pelo painel: RA + CODTURMA + DATA_FALTA + MODULO.
 -- Pode ser lido como coluna calculada: .select('..., id_falta').
@@ -102,13 +112,13 @@ alter table public.cargas          enable row level security;
 revoke all on public.painel_usuarios, public.faltas, public.cargas from anon, authenticated;
 grant select on public.painel_usuarios, public.faltas, public.cargas to authenticated;
 
--- Administrador: todas as faltas. Instrutor: somente as faltas em que "Criada por" é o próprio nome.
+-- Administrador: todas as faltas. Instrutor: somente as faltas em que "Criada por" é o próprio usuário (ou nome).
 drop policy if exists "ler faltas" on public.faltas;
 create policy "ler faltas" on public.faltas for select to authenticated
   using (
     (select public.meu_papel()) = 'admin'
     or ((select public.meu_papel()) = 'instrutor'
-        and public.norm_nome(criada_por) = (select public.meu_nome_norm()))
+        and public.norm_nome(criada_por) = any ((select public.minhas_chaves())::text[]))
   );
 
 drop policy if exists "ler cargas" on public.cargas;
@@ -162,7 +172,7 @@ create policy "ler identificadores" on public.faltas_identificadores for select 
   using (
     (select public.meu_papel()) = 'admin'
     or ((select public.meu_papel()) = 'instrutor'
-        and public.norm_nome(criada_por) = (select public.meu_nome_norm()))
+        and public.norm_nome(criada_por) = any ((select public.minhas_chaves())::text[]))
   );
 
 drop policy if exists "ler checklist" on public.checklist_acompanhamento_faltas;
@@ -172,16 +182,16 @@ create policy "ler checklist" on public.checklist_acompanhamento_faltas for sele
     or ((select public.meu_papel()) = 'instrutor' and exists (
           select 1 from public.faltas_identificadores i
           where i.id_falta = checklist_acompanhamento_faltas.id_falta
-            and public.norm_nome(i.criada_por) = (select public.meu_nome_norm())))
+            and public.norm_nome(i.criada_por) = any ((select public.minhas_chaves())::text[])))
   );
 
 -- Salva UM campo do checklist de UMA falta (cria o registro na primeira interação, depois só atualiza).
--- Só o instrutor cujo nome corresponde ao "Criada por" da falta na base atual pode gravar.
+-- Só o instrutor cujo usuário (ou nome) corresponde ao "Criada por" da falta na base atual pode gravar.
 create or replace function public.salvar_checklist(p_id_falta text, p_campo text, p_valor boolean)
 returns public.checklist_acompanhamento_faltas
 language plpgsql security definer set search_path = '' as $$
 declare
-  v_nome text := public.meu_nome_norm();
+  v_chaves text[] := coalesce(public.minhas_chaves(), '{}');
   v_quem text;
   v_f    public.faltas;
   v_row  public.checklist_acompanhamento_faltas;
@@ -190,15 +200,15 @@ begin
   if public.meu_papel() is null then
     raise exception 'sem acesso ao painel' using errcode = '42501';
   end if;
-  if v_nome is null then
-    raise exception 'seu acesso não tem nome vinculado ao campo "Criada por"' using errcode = '42501';
+  if cardinality(v_chaves) = 0 then
+    raise exception 'seu acesso não está vinculado ao campo "Criada por"' using errcode = '42501';
   end if;
   if p_campo not in ('email_enviado','resposta_recebida','falta_justificada','ocorrencia_lancada') then
     raise exception 'campo inválido: %', p_campo using errcode = '22023';
   end if;
 
   select * into v_f from public.faltas f
-  where public.id_falta(f) = p_id_falta and public.norm_nome(f.criada_por) = v_nome
+  where public.id_falta(f) = p_id_falta and public.norm_nome(f.criada_por) = any (v_chaves)
   order by f.id limit 1;
   if not found then
     raise exception 'falta não encontrada ou não pertence a você' using errcode = '42501';

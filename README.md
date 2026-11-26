@@ -10,7 +10,7 @@ Os dados ficam no **Supabase** e só usuários autorizados entram no painel.
 - **Dois perfis de acesso:**
   - **Instrutor** – vê uma visão individual e simplificada, só com as próprias faltas, e preenche o checklist de acompanhamento de cada falta.
   - **Administrador** – visualiza e, no menu do perfil (canto superior), também tem **Publicar nova base** e **Gerenciar acessos**. Essas opções não aparecem para instrutores.
-- **Visão individual do instrutor:** só as faltas em que o campo `Criada por` é o nome do instrutor (sem diferença de maiúsculas/minúsculas nem espaços extras). O filtro é aplicado no banco (RLS), não só na tela. Pódio, rankings, distribuição e comparativo entre instrutores não aparecem nessa visão.
+- **Visão individual do instrutor:** só as faltas em que o campo `Criada por` é igual ao usuário do instrutor (ex.: `guilherme.bezerra` = `GUILHERME.BEZERRA`, sem diferença de maiúsculas/minúsculas). O filtro é aplicado no banco (RLS), não só na tela. Pódio, rankings, distribuição e comparativo entre instrutores não aparecem nessa visão.
 - **Checklist de acompanhamento** (só instrutor): na tabela de detalhamento, cada falta tem os campos E-mail enviado, Resposta recebida, Falta justificada e Ocorrência lançada, salvos automaticamente a cada clique, com data/hora e responsável da última alteração. No topo, indicadores do checklist e das faltas ainda sem acompanhamento.
 - **Filtros** por período, instrutor, estado, empresa, turma, módulo, justificativa e ocorrências.
 - **Exportação** dos dados filtrados para Excel.
@@ -36,13 +36,13 @@ Isso cria as tabelas `painel_usuarios`, `faltas`, `cargas`, `faltas_identificado
 
 ### Criar os acessos dos instrutores
 
-Em **Gerenciar acessos → Criar acessos para todos os instrutores da base**, informe a senha inicial e clique em **Ver instrutores sem acesso**. O painel lista cada nome de `Criada por` que ainda não tem acesso, com um usuário sugerido (`nome.sobrenome`, sem acentos), que pode ser ajustado. Ao confirmar, cria um acesso de instrutor para cada um, já com o nome vinculado.
+Em **Gerenciar acessos → Criar acessos para todos os instrutores da base**, informe a senha inicial e clique em **Ver instrutores sem acesso**. O painel lista cada `Criada por` que ainda não tem acesso e sugere o próprio valor em minúsculas como usuário (ex.: `GUILHERME.BEZERRA` → `guilherme.bezerra`). Ao confirmar, cria um acesso de instrutor para cada um, já com o nome vinculado.
 
 Na lista de acessos, cada usuário tem **Editar usuário** (muda o login), **Editar nome** e **Editar senha**.
 
 > Depois de atualizar o `admin-usuarios.ts`, publique a Edge Function de novo no Supabase. É ela que permite trocar o usuário.
 
-> **Importante para os instrutores:** o vínculo é feito pelo campo **Nome** do acesso (em **Gerenciar acessos → Editar nome**). Ele deve ser igual ao `Criada por` da base, por exemplo `Ana Paula Ribeiro`. Instrutor sem nome preenchido não vê nenhuma falta.
+> **Importante para os instrutores:** o vínculo é feito pelo **usuário** do acesso, comparado com o `Criada por` sem diferença de maiúsculas/minúsculas (ex.: `guilherme.bezerra` = `GUILHERME.BEZERRA`). O campo **Nome** também é aceito, se coincidir com o `Criada por`.
 
 ### 2. Edge Function de acessos
 

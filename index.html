@@ -374,14 +374,14 @@ table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
  <p class="lead" style="margin:4px 0 0">Crie e administre quem pode entrar no painel. Instrutores só visualizam; administradores também publicam a base e gerenciam acessos.</p></div>
  <button class="btn" id="admClose">Fechar</button></div>
  <form class="adm-form" id="admForm">
-  <label>Usuário<input id="admUser" required autocapitalize="off" spellcheck="false" placeholder="nome.sobrenome"></label>
-  <label>Nome (igual ao “Criada por”)<input id="admNome" placeholder="Ex.: Ana Paula Ribeiro" title="Para instrutores, este nome vincula o acesso às faltas em que o campo “Criada por” tem o mesmo nome (maiúsculas/minúsculas e espaços extras não importam)."></label>
+  <label>Usuário<input id="admUser" required autocapitalize="off" spellcheck="false" placeholder="igual ao “Criada por”" title="Para instrutores, use o mesmo valor do campo “Criada por” (maiúsculas/minúsculas não importam)."></label>
+  <label>Nome (opcional)<input id="admNome" placeholder="Nome para exibição" title="O instrutor vê as faltas em que “Criada por” é igual ao USUÁRIO dele (ex.: guilherme.bezerra = GUILHERME.BEZERRA). O nome também é aceito, se coincidir."></label>
   <label>Senha inicial<input id="admPass" type="text" minlength="6" required autocomplete="new-password"></label>
   <label>Papel<select id="admPapel"><option value="instrutor">Instrutor</option><option value="admin">Administrador</option></select></label>
   <button class="btn pri" type="submit" id="admAdd">Criar acesso</button>
  </form>
  <details class="lote" id="admLote"><summary>Criar acessos para todos os instrutores da base (“Criada por”)</summary>
-  <p class="note">Cria um acesso de <b>instrutor</b> para cada nome do campo “Criada por” que ainda não tem acesso, com o nome já vinculado e a mesma senha inicial para todos. Confira e ajuste os usuários sugeridos antes de criar.</p>
+  <p class="note">Cria um acesso de <b>instrutor</b> para cada nome do campo “Criada por” que ainda não tem acesso, usando o próprio “Criada por” como usuário (ex.: GUILHERME.BEZERRA → guilherme.bezerra) e a mesma senha inicial para todos. Confira e ajuste os usuários sugeridos antes de criar.</p>
   <div class="adm-form" style="margin-top:8px"><label>Senha inicial para todos<input id="loteSenha" type="text" minlength="6" autocomplete="new-password" spellcheck="false"></label><button class="btn" type="button" id="lotePrev">Ver instrutores sem acesso</button></div>
   <div id="loteLista"></div>
  </details>
@@ -460,7 +460,10 @@ const charts={};
 /* visão individual do instrutor */
 const INS=()=>papel==='instrutor';
 const fkeys=()=>INS()?FKEYS.filter(([k])=>k!=='instr'):FKEYS;
-let MEU_NOME='';const CK=new Map();/* id_falta → checklist salvo */
+let MEU_NOME='',MEU_USUARIO='';
+/* chaves que identificam o instrutor no campo "Criada por": usuário (ex.: guilherme.bezerra) e nome — mesma regra do banco */
+const minhasChaves=()=>[MEU_USUARIO,MEU_NOME].map(normNome).filter(Boolean);
+const CK=new Map();/* id_falta → checklist salvo */
 const CKF=[['email_enviado','E-MAIL ENVIADO','E-mails enviados'],['resposta_recebida','RESPOSTA RECEBIDA','Respostas recebidas'],['falta_justificada','FALTA JUSTIFICADA','Faltas justificadas no checklist'],['ocorrencia_lancada','OCORRÊNCIA LANÇADA','Ocorrências lançadas']];
 const ckOf=r=>CK.get(r.idFalta);
 const ckVal=(r,f)=>!!(ckOf(r)||{})[f];
@@ -560,7 +563,7 @@ function renderHeader(rows){
   const ds=rows.map(r=>r.dataFalta).filter(Boolean);
   const a=F.de?parseDate(F.de):(ds.length?new Date(Math.min(...ds)):null),b=F.ate?parseDate(F.ate):(ds.length?new Date(Math.max(...ds)):null);
   $('#mPer').textContent=a&&b?`${fD(a)} a ${fD(b)}`:'—';
-  $('#sampleTag').textContent=SOURCE.sample?'Dados de exemplo — entre com seu e-mail para ver a base real.':INS()?`Minhas faltas · ${MEU_NOME.replace(/\s+/g," ").trim()} · ${SOURCE.name}`:`Fonte: ${SOURCE.name}`;
+  $('#sampleTag').textContent=SOURCE.sample?'Dados de exemplo — entre com seu e-mail para ver a base real.':INS()?`Minhas faltas · ${MEU_USUARIO||MEU_NOME.replace(/\s+/g," ").trim()} · ${SOURCE.name}`:`Fonte: ${SOURCE.name}`;
 }
 
 /* ---------- KPIs ---------- */
@@ -774,7 +777,7 @@ async function exportXlsx(){
   const ws=XLSX.utils.json_to_sheet(out);ws['!cols']=Object.keys(out[0]).map(k=>({wch:Math.min(40,Math.max(10,k.length+2))}));
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Faltas');
   const buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});
-  const name=ins?`minhas_faltas_${MEU_NOME.trim().replace(/[^\wÀ-ú]+/g,'_')}_${iso(new Date())}.xlsx`:`faltas_instrutores${F.instr?'_'+F.instr.replace(/[^\wÀ-ú]+/g,'_'):''}_${iso(new Date())}.xlsx`;
+  const name=ins?`minhas_faltas_${(MEU_USUARIO||MEU_NOME).trim().replace(/[^\wÀ-ú]+/g,'_')}_${iso(new Date())}.xlsx`:`faltas_instrutores${F.instr?'_'+F.instr.replace(/[^\wÀ-ú]+/g,'_'):''}_${iso(new Date())}.xlsx`;
   if(downloads){try{await downloads.save({filename:name,data:new Blob([buf])});toast(`${nf.format(rows.length)} registros exportados.`)}catch(e){toast(e&&e.code==='declined'?'Exportação cancelada.':'Não foi possível salvar o arquivo aqui.')}return}
   try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));a.download=name;document.body.appendChild(a);a.click();a.remove();toast(`${nf.format(rows.length)} registros exportados.`)}catch(e){toast('Download bloqueado neste ambiente.')}
 }
@@ -846,13 +849,13 @@ async function fetchBase(){
   const ins=INS(),sel=ins?COLS_DB+',id_falta':COLS_DB;
   const rows=[];let total=null;for(let i=0;;){const{data,error,count}=await sb.from('faltas').select(sel,i===0?{count:'exact'}:undefined).order('id').range(i,i+999);if(error)throw error;if(i===0)total=count;if(!data.length)break;rows.push(...data);i+=data.length;if(total!=null&&rows.length>=total)break}
   if(ins){/* conferência adicional no navegador, com a mesma regra de comparação */
-    const me=normNome(MEU_NOME);for(let i=rows.length-1;i>=0;i--)if(!me||normNome(rows[i].criada_por)!==me)rows.splice(i,1);
+    const ch=new Set(minhasChaves());for(let i=rows.length-1;i>=0;i--)if(!ch.has(normNome(rows[i].criada_por)))rows.splice(i,1);
     $('#ckMsg').hidden=true;
     try{await fetchChecklist()}catch(e){CK.clear();$('#ckMsg').hidden=false;$('#ckMsg').textContent='Não foi possível carregar o checklist: '+e.message+'. Verifique se o supabase_setup.sql atualizado foi executado.'}}
   const{data:cg,error:e2}=await sb.from('cargas').select('arquivo,linhas,carregado_por,carregado_em').order('carregado_em',{ascending:false}).limit(1);if(e2)throw e2;
   const c=cg&&cg[0];
   if(!rows.length&&ins){DATA=prepare([]);SOURCE={sample:false,updated:c?new Date(c.carregado_em):null,by:c?.carregado_por||'',name:'Supabase'};for(const k in F)F[k]='';scope='';page=0;buildFilters();buildTableHead();renderDQ();render();
-    $('#sampleTag').textContent=MEU_NOME.trim()?`Nenhuma falta com “Criada por” = ${MEU_NOME.trim()} na base atual.`:'Seu acesso ainda não tem nome vinculado ao campo “Criada por”. Peça a um administrador para preencher seu nome em Gerenciar acessos.';return}
+    $('#sampleTag').textContent=`Nenhuma falta com “Criada por” = ${MEU_USUARIO}${MEU_NOME.trim()?' ou '+MEU_NOME.replace(/\s+/g,' ').trim():''} na base atual.`;return}
   if(!rows.length){DATA=[];$('#sampleTag').textContent='A base ainda está vazia no Supabase.'+(papel==='admin'?' Use “Publicar nova base”.':' Peça a um administrador para publicá-la.');toast('Nenhum registro na base.');return}
   load(rows,{sample:false,updated:c?new Date(c.carregado_em):null,by:c?.carregado_por||'',name:`Supabase${c?.arquivo?' · '+c.arquivo:''}`});
   toast(`${nf.format(DATA.length)} faltas carregadas do Supabase.`);
@@ -862,7 +865,7 @@ async function afterLogin(session){
   const{data,error}=await sb.from('painel_usuarios').select('papel,ativo,usuario,nome').eq('user_id',session.user.id).maybeSingle();
   if(error){showGate('Erro ao verificar o acesso: '+error.message,true);return}
   papel=data&&data.ativo?data.papel:null;
-  MEU_NOME=data&&data.nome||'';
+  MEU_NOME=data&&data.nome||'';MEU_USUARIO=data&&data.usuario||'';
   if(!papel){await sb.auth.signOut();showGate(`O usuário ${email.replace('@'+LOGIN_DOMINIO,'')} não está autorizado a ver este painel. Fale com a coordenação.`,true);return}
   gate.hidden=true;setProfile(data.nome||data.usuario||email);$('#btnRefresh').hidden=false;
   try{await fetchBase()}catch(e){toast('Erro ao buscar dados: '+e.message);$('#sampleTag').textContent='Não foi possível buscar os dados.'}
@@ -938,7 +941,7 @@ async function admLoad(){
       <td><b>${esc(u.usuario)}</b>${me?' <span class="badge b-o">você</span>':''}</td><td>${esc(u.nome||'—')}</td>
       <td>${u.papel==='admin'?'<span class="badge b-o">Administrador</span>':'<span class="badge b-i">Instrutor</span>'}</td>
       <td>${u.ativo?'<span class="badge b-ok">Ativo</span>':'<span class="badge b-n">Desativado</span>'}</td><td>${fd(u.ultimo_acesso)}</td>
-      <td><div class="adm-acts"><button class="btn" data-a="usuario" title="Muda o login (usuário) deste acesso">Editar usuário</button><button class="btn" data-a="nome" title="Para instrutores, deve ser igual ao campo “Criada por” da base">Editar nome</button><button class="btn" data-a="senha">Editar senha</button>${me?'':`<button class="btn" data-a="papel" data-v="${u.papel==='admin'?'instrutor':'admin'}">${u.papel==='admin'?'Tornar instrutor':'Tornar admin'}</button><button class="btn" data-a="ativo" data-v="${u.ativo?0:1}">${u.ativo?'Desativar':'Reativar'}</button><button class="btn danger" data-a="excluir">Excluir</button>`}</div></td></tr>`}).join('')+'</tbody>';
+      <td><div class="adm-acts"><button class="btn" data-a="usuario" title="Muda o login. Para instrutores, deve ser igual ao “Criada por” da base">Editar usuário</button><button class="btn" data-a="nome">Editar nome</button><button class="btn" data-a="senha">Editar senha</button>${me?'':`<button class="btn" data-a="papel" data-v="${u.papel==='admin'?'instrutor':'admin'}">${u.papel==='admin'?'Tornar instrutor':'Tornar admin'}</button><button class="btn" data-a="ativo" data-v="${u.ativo?0:1}">${u.ativo?'Desativar':'Reativar'}</button><button class="btn danger" data-a="excluir">Excluir</button>`}</div></td></tr>`}).join('')+'</tbody>';
   }catch(e){t.innerHTML='';admMsg('Erro ao carregar usuários: '+e.message,true)}
 }
 $('#btnAdmin').addEventListener('click',async()=>{closeMenu();if(!isAdmin())return;const{data}=await sb.auth.getSession();admMe=data.session?.user.id;admMsg('');dlgA.showModal();admLoad()});
@@ -954,7 +957,7 @@ $('#admTable').addEventListener('click',async e=>{const btn=e.target.closest('bu
   if(a==='usuario'){let n=prompt(`Novo usuário (login) para ${u}:`,u);if(n===null)return;n=n.trim().toLowerCase();if(n.endsWith('@'+LOGIN_DOMINIO))n=n.split('@')[0];
     if(!/^[a-z0-9][a-z0-9._-]*$/.test(n)){admMsg('Usuário inválido: use letras minúsculas sem acento, números, ponto, hífen ou sublinhado.',true);return}
     if(n===u)return;body={acao:'atualizar',user_id:id,usuario:n,email:n+'@'+LOGIN_DOMINIO}}
-  else if(a==='nome'){const n=prompt(`Nome de ${u} exatamente como aparece em “Criada por” (maiúsculas/minúsculas e espaços extras não importam):`,tr.dataset.nome);if(n===null)return;body={acao:'atualizar',user_id:id,nome:n.trim()}}
+  else if(a==='nome'){const n=prompt(`Nome de ${u} (exibição):`,tr.dataset.nome);if(n===null)return;body={acao:'atualizar',user_id:id,nome:n.trim()}}
   else if(a==='senha'){const s=prompt(`Nova senha para ${u} (mínimo 6 caracteres):`);if(!s)return;body={acao:'senha',user_id:id,senha:s}}
   else if(a==='papel'){if(!confirm(`Alterar o papel de ${u} para ${btn.dataset.v==='admin'?'administrador':'instrutor'}?`))return;body={acao:'atualizar',user_id:id,papel:btn.dataset.v}}
   else if(a==='ativo'){const on=btn.dataset.v==='1';if(!confirm(`${on?'Reativar':'Desativar'} o acesso de ${u}?`))return;body={acao:'atualizar',user_id:id,ativo:on}}
@@ -965,13 +968,14 @@ $('#admTable').addEventListener('click',async e=>{const btn=e.target.closest('bu
 const slug=v=>String(v).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const PREP=new Set(['da','de','do','das','dos','e']);
 function sugereUsuario(nome,usados){
+  const login=String(nome).trim().toLowerCase();if(/^[a-z0-9][a-z0-9._-]*$/.test(login)){if(!usados.has(login))return login;for(let n=2;;n++)if(!usados.has(login+n))return login+n}
   const p=slug(nome).split(' ').filter(x=>x&&!PREP.has(x));if(!p.length)return'';
   const cands=[p.length>1?p[0]+'.'+p[p.length-1]:p[0]];for(let i=1;i<p.length-1;i++)cands.push(p[0]+'.'+p[i]+'.'+p[p.length-1]);
   for(const c of cands)if(!usados.has(c))return c;
   for(let n=2;;n++){const c=cands[0]+n;if(!usados.has(c))return c}
 }
 function loteCandidatos(){
-  const ligados=new Set(admUsers.map(u=>normNome(u.nome)).filter(Boolean));
+  const ligados=new Set(admUsers.flatMap(u=>[normNome(u.usuario),normNome(u.nome)]).filter(Boolean));
   const grupos=new Map();
   for(const r of DATA){if(r.instr==='(não informado)')continue;const k=normNome(r.instr);if(!k)continue;
     if(!grupos.has(k))grupos.set(k,{n:0,formas:new Map()});const g=grupos.get(k);g.n++;g.formas.set(r.instr,(g.formas.get(r.instr)||0)+1)}
