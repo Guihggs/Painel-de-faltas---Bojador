@@ -213,6 +213,13 @@ table.det tr.off td{opacity:.55}
 footer{color:var(--mut);font-size:12.5px;padding:24px 0 40px}
 /* visão individual do instrutor */
 body.ins .so-admin{display:none!important}
+body.ins main.wrap{display:flex;flex-direction:column}
+body.ins main>#checklist{order:1}body.ins main>#podio{order:2}body.ins main>#detalhe{order:3}body.ins main>#visao{order:4}
+body.ins main>#ocorrencias{order:5}body.ins main>#analises{order:6}body.ins main>#qualidade{order:7}body.ins main>footer{order:8}
+body.ins nav.sec a[href="#checklist"]{order:1}body.ins nav.sec a[href="#podio"]{order:2}body.ins nav.sec a[href="#detalhe"]{order:3}body.ins nav.sec a[href="#visao"]{order:4}
+body.ins nav.sec a[href="#ocorrencias"]{order:5}body.ins nav.sec a[href="#analises"]{order:6}body.ins nav.sec a[href="#qualidade"]{order:7}
+.rank tr.eu td{background:color-mix(in srgb,var(--amarelo) 16%,transparent);font-weight:700}
+body.ins .rank tr.clk{cursor:default}body.ins .step{cursor:default}
 body:not(.ins) .so-ins{display:none!important}
 .tg{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;font-weight:600;user-select:none}
 .tg input{appearance:none;-webkit-appearance:none;margin:0;width:38px;height:22px;border-radius:999px;background:var(--line);position:relative;cursor:pointer;transition:background .15s;flex:none}
@@ -259,7 +266,7 @@ table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
    </div>
   </div>
   <nav class="sec" aria-label="Seções">
-   <a href="#checklist" class="so-ins">Acompanhamento</a><a href="#visao"><span class="so-admin">Visão geral</span><span class="so-ins">Meus indicadores</span></a><a href="#podio" class="so-admin">Pódio</a><a href="#ocorrencias">Ocorrências</a><a href="#analises"><span class="so-admin">Análises</span><span class="so-ins">Meus gráficos</span></a><a href="#detalhe">Detalhamento</a><a href="#qualidade">Qualidade da base</a>
+   <a href="#checklist" class="so-ins">Acompanhamento</a><a href="#visao"><span class="so-admin">Visão geral</span><span class="so-ins">Meus indicadores</span></a><a href="#podio">Pódio</a><a href="#ocorrencias">Ocorrências</a><a href="#analises"><span class="so-admin">Análises</span><span class="so-ins">Meus gráficos</span></a><a href="#detalhe">Detalhamento</a><a href="#qualidade">Qualidade da base</a>
   </nav>
  </div>
 </header>
@@ -286,9 +293,9 @@ table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
   <div class="kpis" id="kpis"></div>
  </section>
 
- <section id="podio" class="so-admin">
+ <section id="podio">
   <h2>Pódio dos instrutores</h2>
-  <p class="lead">Classificação pelas faltas registradas sob responsabilidade de cada instrutor (campo “Criada por”), apenas para quem tem registros no período. Empates recebem a mesma posição.</p>
+  <p class="lead">Classificação pelas faltas registradas sob responsabilidade de cada instrutor (campo “Criada por”), apenas para quem tem registros no período. Empates recebem a mesma posição.<span class="so-ins"> Mostra apenas os totais de cada instrutor (considera o período escolhido nos filtros; os demais filtros valem só para os seus registros). Sua linha fica destacada.</span></p>
   <div class="podwrap">
    <div class="panel">
     <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center">
@@ -319,7 +326,7 @@ table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
    <div class="panel so-admin"><h3>Ocorrências por instrutor</h3><div class="legend"><span><i style="background:var(--ok)"></i>Com atendimento</span><span><i style="background:var(--oc)"></i>Sem atendimento registrado</span></div><div class="bars" id="bOcInstr"></div></div>
    <div class="panel"><h3>Por responsável pelo atendimento</h3><div class="bars" id="bAtend"></div></div>
    <div class="panel"><h3>Ocorrências por estado</h3><div class="bars" id="bOcUF"></div></div>
-   <div class="panel"><h3>Ocorrências por empresa</h3><div class="bars" id="bOcEmp"></div></div>
+   <div class="panel so-admin"><h3>Ocorrências por empresa</h3><div class="bars" id="bOcEmp"></div></div>
   </div>
  </section>
 
@@ -331,7 +338,7 @@ table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
    <div class="panel"><h3>Justificadas × não justificadas</h3><div id="jvn"></div></div>
    <div class="panel so-admin"><h3>Distribuição por instrutor</h3><div class="legend"><span><i style="background:var(--just)"></i>Justificada</span><span><i style="background:var(--nj)"></i>Não justificada</span><span><i style="background:var(--ni)"></i>Não informado</span></div><div class="bars" id="bInstr"></div></div>
    <div class="panel"><h3>Por estado</h3><div class="bars" id="bUF"></div></div>
-   <div class="panel"><h3>Por empresa</h3><div class="bars" id="bEmp"></div></div>
+   <div class="panel so-admin"><h3>Por empresa</h3><div class="bars" id="bEmp"></div></div>
    <div class="panel"><h3>Por módulo</h3><div class="bars" id="bMod"></div></div>
    <div class="panel"><h3>Por grupo de ocorrência</h3><div class="bars" id="bGrupo2"></div></div>
    <div class="panel so-admin" style="grid-column:1/-1"><h3>Comparativo entre instrutores <span class="tip" tabindex="0" data-tip="Cada ponto é um instrutor: eixo horizontal = faltas registradas; vertical = % justificadas. Clique para filtrar.">i</span></h3><div class="fig tall"><canvas id="cScatter"></canvas></div></div>
@@ -592,8 +599,8 @@ function renderKPIs(rows){
 }
 
 /* ---------- pódio e rankings ---------- */
-function renderRanks(rows){
-  const st=instrStats(rows);
+function renderRanks(rows,pre){
+  const st=pre||instrStats(rows);const ins=INS(),me=new Set(minhasChaves());const eu=x=>ins&&me.has(normNome(x.k||x.n))?' eu':'';
   const val=x=>r1mode==='abs'?x.tot:r1mode==='turma'?x.tot/x.turmas:x.tot/x.jovens;
   const fmt=x=>r1mode==='abs'?nf.format(x.tot)+' faltas':val(x).toLocaleString('pt-BR',{maximumFractionDigits:2})+(r1mode==='turma'?' faltas/turma':' faltas/jovem');
   const r1=rankCompetition(st,val,true);
@@ -602,11 +609,12 @@ function renderRanks(rows){
   $('#podium').innerHTML=r1.length?top.map((x,i)=>x?`<button class="step" data-n="${esc(x.n)}" style="--c:${PC[Math.min(x.pos,3)-1][0]};--t:${PC[Math.min(x.pos,3)-1][1]}" title="Ver registros de ${esc(x.n)}"><span class="avatar">${esc(initials(x.n))}<span class="medal">${x.pos}º</span></span><span class="pname">${esc(x.n)}</span><span class="pval">${esc(fmt(x))}</span><span class="block" style="height:${hts[i]}px">${x.pos}º<small>${PC[Math.min(x.pos,3)-1][2]}</small></span></button>`:'<div></div>').join(''):`<div class="empty" style="grid-column:1/-1">Sem registros no período.</div>`;
   const pc=p=>p<=3?` p${p}`:'';
   $('#r1').innerHTML=`<thead><tr><th>Pos.</th><th>Instrutor</th><th style="text-align:right">Faltas</th><th style="text-align:right">Turmas</th><th style="text-align:right">Jovens</th><th style="text-align:right">${r1mode==='abs'?'Faltas/turma':r1mode==='turma'?'Faltas/turma':'Faltas/jovem'}</th></tr></thead><tbody>`+
-    r1.map(x=>`<tr class="clk" data-n="${esc(x.n)}"><td><span class="pos${pc(x.pos)}">${x.pos}º</span></td><td>${esc(x.n)}</td><td class="n">${nf.format(x.tot)}</td><td class="n">${x.turmas}</td><td class="n">${x.jovens}</td><td class="n">${(r1mode==='jovem'?x.tot/x.jovens:x.tot/x.turmas).toLocaleString('pt-BR',{maximumFractionDigits:2})}</td></tr>`).join('')+'</tbody>';
+    r1.map(x=>`<tr class="clk${eu(x)}" data-n="${esc(x.n)}"><td><span class="pos${pc(x.pos)}">${x.pos}º</span></td><td>${esc(x.n)}</td><td class="n">${nf.format(x.tot)}</td><td class="n">${x.turmas}</td><td class="n">${x.jovens}</td><td class="n">${(r1mode==='jovem'?x.tot/x.jovens:x.tot/x.turmas).toLocaleString('pt-BR',{maximumFractionDigits:2})}</td></tr>`).join('')+'</tbody>';
   const r2=rankCompetition(st.filter(x=>x.j>0),x=>x.j,false);
-  $('#r2').innerHTML=r2.length?`<thead><tr><th>Pos.</th><th>Instrutor</th><th style="text-align:right">Justificadas</th><th style="text-align:right">% do total</th></tr></thead><tbody>`+r2.map(x=>`<tr class="clk" data-n="${esc(x.n)}"><td><span class="pos${pc(x.pos)}">${x.pos}º</span></td><td>${esc(x.n)}</td><td class="n">${nf.format(x.j)}</td><td class="n">${pf(x.j/x.tot)} <span class="meter" style="display:inline-flex;width:50px;vertical-align:middle"><i style="width:${x.j/x.tot*100}%;background:var(--just)"></i></span></td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="empty">Nenhuma falta justificada no período.</td></tr></tbody>';
+  $('#r2').innerHTML=r2.length?`<thead><tr><th>Pos.</th><th>Instrutor</th><th style="text-align:right">Justificadas</th><th style="text-align:right">% do total</th></tr></thead><tbody>`+r2.map(x=>`<tr class="clk${eu(x)}" data-n="${esc(x.n)}"><td><span class="pos${pc(x.pos)}">${x.pos}º</span></td><td>${esc(x.n)}</td><td class="n">${nf.format(x.j)}</td><td class="n">${pf(x.j/x.tot)} <span class="meter" style="display:inline-flex;width:50px;vertical-align:middle"><i style="width:${x.j/x.tot*100}%;background:var(--just)"></i></span></td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="empty">Nenhuma falta justificada no período.</td></tr></tbody>';
   const r3=rankCompetition(st.filter(x=>x.oc>0),x=>x.oc,false);
-  $('#r3').innerHTML=r3.length?`<thead><tr><th>Pos.</th><th>Instrutor</th><th style="text-align:right">Ocorr.</th><th>Grupo predominante</th><th>Tipo mais recorrente</th><th style="text-align:right">Com atendimento</th></tr></thead><tbody>`+r3.map(x=>`<tr class="clk" data-n="${esc(x.n)}"><td><span class="pos${pc(x.pos)}">${x.pos}º</span></td><td>${esc(x.n)}</td><td class="n">${nf.format(x.oc)} <small style="color:var(--mut)">(${pf(x.oc/x.tot)})</small></td><td>${esc(x.g?x.g.k:'—')}</td><td>${esc(x.t?x.t.k:'—')}</td><td class="n">${nf.format(x.ocAt)} <small style="color:var(--mut)">de ${x.oc}</small></td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="empty">Nenhuma ocorrência no período.</td></tr></tbody>';
+  $('#r3').innerHTML=r3.length?`<thead><tr><th>Pos.</th><th>Instrutor</th><th style="text-align:right">Ocorr.</th><th>Grupo predominante</th><th>Tipo mais recorrente</th><th style="text-align:right">Com atendimento</th></tr></thead><tbody>`+r3.map(x=>`<tr class="clk${eu(x)}" data-n="${esc(x.n)}"><td><span class="pos${pc(x.pos)}">${x.pos}º</span></td><td>${esc(x.n)}</td><td class="n">${nf.format(x.oc)} <small style="color:var(--mut)">(${pf(x.oc/x.tot)})</small></td><td>${esc(x.g?x.g.k:'—')}</td><td>${esc(x.t?x.t.k:'—')}</td><td class="n">${nf.format(x.ocAt)} <small style="color:var(--mut)">de ${x.oc}</small></td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="empty">Nenhuma ocorrência no período.</td></tr></tbody>';
+  if(ins)return;/* instrutor: ranking só informativo (não abre registros de outros) */
   document.querySelectorAll('#podium .step,#r1 tr.clk,#r2 tr.clk,#r3 tr.clk').forEach(el=>el.addEventListener('click',()=>{selInstr(el.dataset.n,true);toast(`Registros de ${el.dataset.n}`)}));
 }
 
@@ -639,7 +647,7 @@ function renderOc(rows){
   if(!INS())bars('bOcInstr',countBy(oc,r=>r.instr).map(e=>({...e,parts:[[e.rs.filter(r=>r.atend).length,'var(--ok)','Com atendimento'],[e.rs.filter(r=>!r.atend).length,'var(--oc)','Sem atendimento']]})),'instr');
   bars('bAtend',countBy(oc,r=>r.atend||'(vazio)'),'atend',{color:'var(--ok)',total:n});
   bars('bOcUF',countBy(oc,r=>r.estado||'(vazio)'),'estado',{color:'var(--oc)'});
-  bars('bOcEmp',countBy(oc,r=>r.empresa||'(vazio)'),'empresa',{color:'var(--oc)'});
+  if(!INS())bars('bOcEmp',countBy(oc,r=>r.empresa||'(vazio)'),'empresa',{color:'var(--oc)'});
 }
 
 /* ---------- gráficos ---------- */
@@ -679,7 +687,7 @@ function renderCharts(rows){
   $('#jvn').querySelectorAll('[data-j]').forEach(b=>b.addEventListener('click',()=>setF('just',b.dataset.j)));
   if(!INS())bars('bInstr',countBy(rows,r=>r.instr).map(e=>({...e,parts:justParts(e.rs)})),'instr',{limit:12});
   bars('bUF',countBy(rows,r=>r.estado||'(vazio)'),'estado',{total:t});
-  bars('bEmp',countBy(rows,r=>r.empresa||'(vazio)'),'empresa',{total:t});
+  if(!INS())bars('bEmp',countBy(rows,r=>r.empresa||'(vazio)'),'empresa',{total:t});
   bars('bMod',countBy(rows,r=>r.modulo||'(vazio)').sort((a,b)=>a.k.localeCompare(b.k,'pt-BR',{numeric:true})),'modulo',{total:t});
   bars('bGrupo2',countBy(rows.filter(r=>r.hasOc),r=>r.grupo||'(não informado)'),'grupo',{color:'var(--oc)'});
 }
@@ -807,7 +815,18 @@ function renderDQ(){
 }
 
 /* ---------- orquestração ---------- */
-function render(){const rows=cur();syncFilters();renderHeader(rows);renderCkKpis(rows);renderKPIs(rows);if(!INS())renderRanks(rows);renderOc(rows);renderCharts(rows);renderTable()}
+let RK={key:null,st:null,pend:null};
+async function renderRanksIns(){
+  if(!sb)return;const key=(F.de||'')+'|'+(F.ate||'');
+  if(RK.key===key&&RK.st){renderRanks([],RK.st);return}
+  RK.pend=key;
+  const{data,error}=await sb.rpc('ranking_instrutores',{p_de:F.de||null,p_ate:F.ate||null});
+  if(RK.pend!==key)return;
+  if(error){$('#podium').innerHTML=`<div class="empty" style="grid-column:1/-1">Não foi possível carregar o ranking: ${esc(error.message)}</div>`;return}
+  RK={key,pend:null,st:(data||[]).map(x=>({n:x.instrutor,k:x.chave,tot:x.total,j:x.justificadas,nj:x.nao_justificadas,ni:x.nao_informadas,turmas:Math.max(1,x.turmas),jovens:Math.max(1,x.jovens),oc:x.ocorrencias,ocAt:x.ocorrencias_atendidas,g:x.grupo_top?{k:x.grupo_top}:null,t:x.tipo_top?{k:x.tipo_top}:null}))};
+  renderRanks([],RK.st);
+}
+function render(){const rows=cur();syncFilters();renderHeader(rows);renderCkKpis(rows);renderKPIs(rows);if(!INS())renderRanks(rows);else renderRanksIns();renderOc(rows);renderCharts(rows);renderTable()}
 function load(rows,src){
   const d=prepare(rows);if(!d.length){toast('Nenhum registro válido encontrado no arquivo.');return false}
   DATA=d;SOURCE=src;const ce=DATA.map(r=>r.criadaEm).filter(Boolean);SOURCE.lastCreated=ce.length?new Date(Math.max(...ce)):null;
@@ -823,7 +842,7 @@ $('#tInstr').addEventListener('change',e=>{F.instr=e.target.value;page=0;render(
 $('#tSearch').addEventListener('input',e=>{search=e.target.value;page=0;renderTable()});
 $('#scopeClr').addEventListener('click',()=>{scope='';page=0;renderTable()});
 $('#pPrev').addEventListener('click',()=>{page--;renderTable()});$('#pNext').addEventListener('click',()=>{page++;renderTable()});
-$('#r1mode').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;r1mode=b.dataset.m;$('#r1mode').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));renderRanks(cur())});
+$('#r1mode').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;r1mode=b.dataset.m;$('#r1mode').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));if(INS())renderRanksIns();else renderRanks(cur())});
 $('#btnXlsx').addEventListener('click',exportXlsx);
 $('#det').addEventListener('change',e=>{const i=e.target.closest('input[data-ck]');if(i)saveCk(i)});
 /* ---------- Supabase ---------- */
@@ -850,6 +869,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu()});
 addEventListener('resize',closeMenu);addEventListener('scroll',closeMenu,{passive:true});
 function showGate(msg,err){gate.hidden=false;gmsg(msg,err);papel=null;setProfile('');$('#btnRefresh').hidden=true}
 async function fetchBase(){
+  RK={key:null,st:null,pend:null};
   $('#sampleTag').textContent='Buscando dados no Supabase…';
   /* instrutor: o banco (RLS) só devolve as faltas com "Criada por" = nome do instrutor; o id_falta é o identificador estável */
   const ins=INS(),sel=ins?COLS_DB+',id_falta':COLS_DB;
