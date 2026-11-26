@@ -1,0 +1,660 @@
+diff --git a/README.md b/README.md
+index 648009e..437f672 100644
+--- a/README.md
++++ b/README.md
+@@ -8,8 +8,10 @@ Os dados ficam no **Supabase** e só usuários autorizados entram no painel.
+ 
+ - **Login por usuário** (ex.: `nome.sobrenome`, que vira `nome.sobrenome@renapsi.org.br`).
+ - **Dois perfis de acesso:**
+-  - **Instrutor** – apenas visualiza o painel.
++  - **Instrutor** – vê uma visão individual e simplificada, só com as próprias faltas, e preenche o checklist de acompanhamento de cada falta.
+   - **Administrador** – visualiza e, no menu do perfil (canto superior), também tem **Publicar nova base** e **Gerenciar acessos**. Essas opções não aparecem para instrutores.
++- **Visão individual do instrutor:** só as faltas em que o campo `Criada por` é o nome do instrutor (sem diferença de maiúsculas/minúsculas nem espaços extras). O filtro é aplicado no banco (RLS), não só na tela. Pódio, rankings, distribuição e comparativo entre instrutores não aparecem nessa visão.
++- **Checklist de acompanhamento** (só instrutor): na tabela de detalhamento, cada falta tem os campos E-mail enviado, Resposta recebida, Falta justificada e Ocorrência lançada, salvos automaticamente a cada clique, com data/hora e responsável da última alteração. No topo, indicadores do checklist e das faltas ainda sem acompanhamento.
+ - **Filtros** por período, instrutor, estado, empresa, turma, módulo, justificativa e ocorrências.
+ - **Exportação** dos dados filtrados para Excel.
+ - **Modo de demonstração** com dados de exemplo (botão "Ver com dados de exemplo" na tela de login).
+@@ -30,7 +32,9 @@ Os dados ficam no **Supabase** e só usuários autorizados entram no painel.
+ 1. No Supabase, abra **SQL Editor**.
+ 2. Cole e rode o conteúdo de `supabase_setup.sql`. Ele pode ser rodado de novo sem perder dados.
+ 
+-Isso cria as tabelas `painel_usuarios`, `faltas` e `cargas`, ativa o RLS e define o administrador inicial.
++Isso cria as tabelas `painel_usuarios`, `faltas`, `cargas`, `faltas_identificadores` e `checklist_acompanhamento_faltas`, ativa o RLS, cria a função `salvar_checklist` e define o administrador inicial.
++
++> **Importante para os instrutores:** o vínculo é feito pelo campo **Nome** do acesso (em **Gerenciar acessos → Editar nome**). Ele deve ser igual ao `Criada por` da base, por exemplo `Ana Paula Ribeiro`. Instrutor sem nome preenchido não vê nenhuma falta.
+ 
+ ### 2. Edge Function de acessos
+ 
+@@ -67,10 +71,19 @@ O painel está publicado na Vercel em **https://painel-de-faltas-bojador.vercel.
+    `RA, NOME, CODTURMA, MODULO, JUSTIFICADA, Criada por, DATA_FALTA, Criada em, EMAIL JOVEM, EMPRESA, ESTADO, DATAOCORRENCIA, GRUPO_OCORRENCIA, TIPO_OCORRENCIA, ATENDIMENTO_RESPONSAVEL, OBSERVACOES, DATA DESLIGAMENTO, Total Geral`
+ 4. Confira a prévia e clique em **Publicar no Supabase**. A nova base substitui a anterior para todos.
+ 
++## Checklist de acompanhamento
++
++- Fica na tabela `checklist_acompanhamento_faltas`, separada de `faltas` (a tabela de faltas não é alterada).
++- Cada falta é identificada por um **ID estável**, `RA|CODTURMA|DATA_FALTA|MODULO`, que é a mesma regra de unicidade usada pelo painel. Ele não depende do `id` da tabela `faltas`, que muda a cada nova base. Esse ID é exposto como coluna calculada `id_falta`.
++- `faltas_identificadores` guarda permanentemente cada ID já publicado e é o alvo da chave estrangeira do checklist. Por isso **publicar uma nova base não apaga o checklist**.
++- A gravação é feita só pela função `salvar_checklist(id_falta, campo, valor)`. Ela confere se a falta pertence ao instrutor logado, cria o registro na primeira interação e depois só atualiza o campo alterado (`id_falta` é único, então não há duplicados). Ela também grava `atualizado_por` e `data_ultima_alteracao`.
++- "Sem acompanhamento iniciado" = nenhum dos 4 itens marcado.
++
+ ## Segurança
+ 
+ - Esconder botões na tela é só conveniência: as permissões são garantidas no servidor.
+-- A leitura de `faltas` e `cargas` exige um usuário ativo em `painel_usuarios` (RLS).
++- A leitura de `faltas` e `cargas` exige um usuário ativo em `painel_usuarios` (RLS). Administradores leem todas as faltas; instrutores, só as próprias (`Criada por` = nome do acesso).
++- O checklist só pode ser lido pelo instrutor dono da falta (ou por administradores). Não há insert/update direto: a escrita passa por `salvar_checklist`, que valida o dono no banco.
+ - A publicação da base (`substituir_faltas`) e a Edge Function `admin-usuarios` recusam qualquer usuário que não seja administrador ativo.
+ - Usuários desativados são bloqueados no login.
+ 
+diff --git a/index.html b/index.html
+index bf34306..aa358e0 100644
+--- a/index.html
++++ b/index.html
+@@ -211,6 +211,19 @@ dialog::backdrop{background:rgba(8,15,30,.55)}
+ .btn.danger{color:var(--nj)}
+ table.det tr.off td{opacity:.55}
+ footer{color:var(--mut);font-size:12.5px;padding:24px 0 40px}
++/* visão individual do instrutor */
++body.ins .so-admin{display:none!important}
++body:not(.ins) .so-ins{display:none!important}
++.tg{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;font-weight:600;user-select:none}
++.tg input{appearance:none;-webkit-appearance:none;margin:0;width:38px;height:22px;border-radius:999px;background:var(--line);position:relative;cursor:pointer;transition:background .15s;flex:none}
++.tg input::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s}
++.tg input:checked{background:var(--ok)}.tg input:checked::after{left:19px}
++.tg input:disabled{opacity:.5;cursor:progress}
++.tg span{min-width:2.2em;color:var(--mut)}.tg input:checked+span{color:var(--ok)}
++table.det td.ck{text-align:left}
++table.det tr.na td{background:color-mix(in srgb,var(--amarelo) 9%,transparent)}
++table.det th.ckh{background:color-mix(in srgb,var(--azul) 14%,var(--soft))}
++.ckmsg{font-size:13px;color:var(--mut);margin:8px 0 0}
+ @media(max-width:600px){.podium{min-height:240px}.avatar{width:48px;height:48px;font-size:16px}.block{font-size:22px}.bar{grid-template-columns:minmax(0,42%) minmax(0,1fr) auto}}
+ </style>
+ </head>
+@@ -243,7 +256,7 @@ footer{color:var(--mut);font-size:12.5px;padding:24px 0 40px}
+    </div>
+   </div>
+   <nav class="sec" aria-label="Seções">
+-   <a href="#visao">Visão geral</a><a href="#podio">Pódio</a><a href="#ocorrencias">Ocorrências</a><a href="#analises">Análises</a><a href="#detalhe">Detalhamento</a><a href="#qualidade">Qualidade da base</a>
++   <a href="#checklist" class="so-ins">Acompanhamento</a><a href="#visao"><span class="so-admin">Visão geral</span><span class="so-ins">Meus indicadores</span></a><a href="#podio" class="so-admin">Pódio</a><a href="#ocorrencias">Ocorrências</a><a href="#analises"><span class="so-admin">Análises</span><span class="so-ins">Meus gráficos</span></a><a href="#detalhe">Detalhamento</a><a href="#qualidade">Qualidade da base</a>
+   </nav>
+  </div>
+ </header>
+@@ -257,13 +270,20 @@ footer{color:var(--mut);font-size:12.5px;padding:24px 0 40px}
+ </div>
+ 
+ <main class="wrap">
++ <section id="checklist" class="so-ins">
++  <h2>Acompanhamento das minhas faltas</h2>
++  <p class="lead">Resumo do checklist que você preenche no detalhamento (final da página). Considera apenas as suas faltas e os filtros aplicados. Clique em um card para abrir os registros correspondentes.</p>
++  <div class="kpis" id="ckkpis"></div>
++  <p class="ckmsg" id="ckMsg" hidden></p>
++ </section>
++
+  <section id="visao">
+-  <h2>Visão geral</h2>
++  <h2><span class="so-admin">Visão geral</span><span class="so-ins">Meus indicadores</span></h2>
+   <p class="lead">Clique em um card para abrir os registros correspondentes no detalhamento. A comparação usa o período anterior de mesma duração.</p>
+   <div class="kpis" id="kpis"></div>
+  </section>
+ 
+- <section id="podio">
++ <section id="podio" class="so-admin">
+   <h2>Pódio dos instrutores</h2>
+   <p class="lead">Classificação pelas faltas registradas sob responsabilidade de cada instrutor (campo “Criada por”), apenas para quem tem registros no período. Empates recebem a mesma posição.</p>
+   <div class="podwrap">
+@@ -286,14 +306,14 @@ footer{color:var(--mut);font-size:12.5px;padding:24px 0 40px}
+  </section>
+ 
+  <section id="ocorrencias">
+-  <h2>Acompanhamento das ocorrências</h2>
++  <h2>Acompanhamento das ocorrências<span class="so-ins"> — minhas faltas</span></h2>
+   <p class="lead">O indicador considera o preenchimento de DATAOCORRENCIA, GRUPO_OCORRENCIA, TIPO_OCORRENCIA e ATENDIMENTO_RESPONSAVEL. Registros sem atendimento indicado são sinalizados para verificação — não são classificados como pendentes, pois a regra de pendência não está definida.</p>
+   <div class="grid g2">
+    <div class="panel"><h3>Indicador de acompanhamento</h3><div class="acomp" id="acomp"></div><div class="fieldfill" id="fieldfill"></div></div>
+    <div class="panel"><h3>Evolução mensal das ocorrências</h3><div class="fig"><canvas id="cOcMes"></canvas></div></div>
+    <div class="panel"><h3>Por grupo de ocorrência</h3><div class="bars" id="bGrupo"></div></div>
+    <div class="panel"><h3>Por tipo de ocorrência</h3><div class="bars" id="bTipo"></div></div>
+-   <div class="panel"><h3>Ocorrências por instrutor</h3><div class="legend"><span><i style="background:var(--ok)"></i>Com atendimento</span><span><i style="background:var(--oc)"></i>Sem atendimento registrado</span></div><div class="bars" id="bOcInstr"></div></div>
++   <div class="panel so-admin"><h3>Ocorrências por instrutor</h3><div class="legend"><span><i style="background:var(--ok)"></i>Com atendimento</span><span><i style="background:var(--oc)"></i>Sem atendimento registrado</span></div><div class="bars" id="bOcInstr"></div></div>
+    <div class="panel"><h3>Por responsável pelo atendimento</h3><div class="bars" id="bAtend"></div></div>
+    <div class="panel"><h3>Ocorrências por estado</h3><div class="bars" id="bOcUF"></div></div>
+    <div class="panel"><h3>Ocorrências por empresa</h3><div class="bars" id="bOcEmp"></div></div>
+@@ -301,31 +321,32 @@ footer{color:var(--mut);font-size:12.5px;padding:24px 0 40px}
+  </section>
+ 
+  <section id="analises">
+-  <h2>Análises gráficas</h2>
+-  <p class="lead">Clique em uma barra, mês ou ponto para filtrar todo o painel por aquele item.</p>
++  <h2><span class="so-admin">Análises gráficas</span><span class="so-ins">Meus gráficos</span></h2>
++  <p class="lead">Clique em uma barra, mês ou ponto para filtrar todo o painel por aquele item.<span class="so-ins"> Os gráficos usam somente as faltas registradas por você e se atualizam com os filtros e com o checklist.</span></p>
+   <div class="grid g2">
+    <div class="panel" style="grid-column:1/-1"><h3>Evolução mensal das faltas</h3><div class="legend"><span><i style="background:var(--just)"></i>Justificada</span><span><i style="background:var(--nj)"></i>Não justificada</span><span><i style="background:var(--ni)"></i>Não informado</span></div><div class="fig"><canvas id="cMes"></canvas></div></div>
+    <div class="panel"><h3>Justificadas × não justificadas</h3><div id="jvn"></div></div>
+-   <div class="panel"><h3>Distribuição por instrutor</h3><div class="legend"><span><i style="background:var(--just)"></i>Justificada</span><span><i style="background:var(--nj)"></i>Não justificada</span><span><i style="background:var(--ni)"></i>Não informado</span></div><div class="bars" id="bInstr"></div></div>
++   <div class="panel so-admin"><h3>Distribuição por instrutor</h3><div class="legend"><span><i style="background:var(--just)"></i>Justificada</span><span><i style="background:var(--nj)"></i>Não justificada</span><span><i style="background:var(--ni)"></i>Não informado</span></div><div class="bars" id="bInstr"></div></div>
+    <div class="panel"><h3>Por estado</h3><div class="bars" id="bUF"></div></div>
+    <div class="panel"><h3>Por empresa</h3><div class="bars" id="bEmp"></div></div>
+    <div class="panel"><h3>Por módulo</h3><div class="bars" id="bMod"></div></div>
+    <div class="panel"><h3>Por grupo de ocorrência</h3><div class="bars" id="bGrupo2"></div></div>
+-   <div class="panel" style="grid-column:1/-1"><h3>Comparativo entre instrutores <span class="tip" tabindex="0" data-tip="Cada ponto é um instrutor: eixo horizontal = faltas registradas; vertical = % justificadas. Clique para filtrar.">i</span></h3><div class="fig tall"><canvas id="cScatter"></canvas></div></div>
++   <div class="panel so-admin" style="grid-column:1/-1"><h3>Comparativo entre instrutores <span class="tip" tabindex="0" data-tip="Cada ponto é um instrutor: eixo horizontal = faltas registradas; vertical = % justificadas. Clique para filtrar.">i</span></h3><div class="fig tall"><canvas id="cScatter"></canvas></div></div>
+   </div>
+  </section>
+ 
+  <section id="detalhe">
+   <h2>Detalhamento individual</h2>
+-  <p class="lead">Selecione um instrutor para ver somente os registros dele. A tabela também segue os filtros gerais e as seleções feitas nos rankings e gráficos.</p>
++  <p class="lead so-admin">Selecione um instrutor para ver somente os registros dele. A tabela também segue os filtros gerais e as seleções feitas nos rankings e gráficos.</p>
++  <p class="lead so-ins">Somente as faltas registradas por você. Marque o andamento de cada falta nas colunas de acompanhamento — cada alteração é salva automaticamente, com data, horário e responsável. Linhas destacadas em amarelo ainda não têm acompanhamento iniciado.</p>
+   <div class="panel">
+    <div class="tbar">
+-    <select id="tInstr" aria-label="Instrutor"></select>
++    <select id="tInstr" class="so-admin" aria-label="Instrutor"></select>
+     <input type="search" id="tSearch" placeholder="Pesquisar por nome ou RA">
+     <span class="chip scope" id="scopeChip"><span id="scopeTxt"></span><button id="scopeClr" aria-label="Remover recorte">×</button></span>
+     <button class="btn pri" id="btnXlsx">Exportar Excel</button>
+    </div>
+-   <div class="legend"><span><i style="background:var(--just)"></i>Justificada</span><span><i style="background:var(--nj)"></i>Não justificada</span><span><i style="background:var(--ni)"></i>Justificativa não informada</span><span><span class="badge b-o">Ocorrência</span></span><span><span class="badge b-ok">Atendimento registrado</span></span><span><span class="badge b-w">Verificar atendimento</span></span></div>
++   <div class="legend"><span><i style="background:var(--just)"></i>Justificada</span><span><i style="background:var(--nj)"></i>Não justificada</span><span><i style="background:var(--ni)"></i>Justificativa não informada</span><span><span class="badge b-o">Ocorrência</span></span><span><span class="badge b-ok">Atendimento registrado</span></span><span><span class="badge b-w">Verificar atendimento</span></span><span class="so-ins"><span class="badge b-w">Não acompanhada</span></span></div>
+    <div class="tscroll"><table class="det" id="det"></table></div>
+    <div class="pager"><span id="pInfo"></span><div><button id="pPrev" aria-label="Página anterior">‹</button><button id="pNext" aria-label="Próxima página">›</button></div></div>
+   </div>
+@@ -351,7 +372,7 @@ footer{color:var(--mut);font-size:12.5px;padding:24px 0 40px}
+  <button class="btn" id="admClose">Fechar</button></div>
+  <form class="adm-form" id="admForm">
+   <label>Usuário<input id="admUser" required autocapitalize="off" spellcheck="false" placeholder="nome.sobrenome"></label>
+-  <label>Nome (opcional)<input id="admNome" placeholder="Nome para exibição"></label>
++  <label>Nome (igual ao “Criada por”)<input id="admNome" placeholder="Ex.: Ana Paula Ribeiro" title="Para instrutores, este nome vincula o acesso às faltas em que o campo “Criada por” tem o mesmo nome (maiúsculas/minúsculas e espaços extras não importam)."></label>
+   <label>Senha inicial<input id="admPass" type="text" minlength="6" required autocomplete="new-password"></label>
+   <label>Papel<select id="admPapel"><option value="instrutor">Instrutor</option><option value="admin">Administrador</option></select></label>
+   <button class="btn pri" type="submit" id="admAdd">Criar acesso</button>
+@@ -417,7 +438,9 @@ function normJust(v){
+   if(/^(nao|n|no|false|0|nao justificada|nao justificado|injustificada)$/.test(s))return 'Não justificada';
+   return 'Não informado';
+ }
+-const KEYMAP={RA:'ra',NOME:'nome',CODTURMA:'turma',MODULO:'modulo',JUSTIFICADA:'justRaw',CRIADAPOR:'instr',DATAFALTA:'dataFaltaRaw',CRIADAEM:'criadaEmRaw',EMAILJOVEM:'email',EMPRESA:'empresa',ESTADO:'estado',DATAOCORRENCIA:'dataOcRaw',GRUPOOCORRENCIA:'grupo',TIPOOCORRENCIA:'tipo',ATENDIMENTORESPONSAVEL:'atend',OBSERVACOES:'obs',DATADESLIGAMENTO:'deslRaw',TOTALGERAL:'total'};
++const KEYMAP={RA:'ra',NOME:'nome',CODTURMA:'turma',MODULO:'modulo',JUSTIFICADA:'justRaw',CRIADAPOR:'instr',DATAFALTA:'dataFaltaRaw',CRIADAEM:'criadaEmRaw',EMAILJOVEM:'email',EMPRESA:'empresa',ESTADO:'estado',DATAOCORRENCIA:'dataOcRaw',GRUPOOCORRENCIA:'grupo',TIPOOCORRENCIA:'tipo',ATENDIMENTORESPONSAVEL:'atend',OBSERVACOES:'obs',DATADESLIGAMENTO:'deslRaw',TOTALGERAL:'total',IDFALTA:'idFalta'};
++/* mesma regra do banco (public.norm_nome): espaços excedentes removidos + MAIÚSCULAS */
++const normNome=v=>String(v??'').replace(/\s+/g,' ').trim().toUpperCase();
+ const nk=k=>String(k).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+ 
+ /* ---------- estado ---------- */
+@@ -426,6 +449,14 @@ const FKEYS=[['instr','Instrutor (Criada por)'],['estado','Estado'],['empresa','
+ const F={de:'',ate:'',instr:'',estado:'',empresa:'',turma:'',modulo:'',just:'',grupo:'',tipo:'',atend:''};
+ let r1mode='abs',scope='',sortK='dataFalta',sortD=-1,page=0;const PS=25;const colF={};let search='';
+ const charts={};
++/* visão individual do instrutor */
++const INS=()=>papel==='instrutor';
++const fkeys=()=>INS()?FKEYS.filter(([k])=>k!=='instr'):FKEYS;
++let MEU_NOME='';const CK=new Map();/* id_falta → checklist salvo */
++const CKF=[['email_enviado','E-MAIL ENVIADO','E-mails enviados'],['resposta_recebida','RESPOSTA RECEBIDA','Respostas recebidas'],['falta_justificada','FALTA JUSTIFICADA','Faltas justificadas no checklist'],['ocorrencia_lancada','OCORRÊNCIA LANÇADA','Ocorrências lançadas']];
++const ckOf=r=>CK.get(r.idFalta);
++const ckVal=(r,f)=>!!(ckOf(r)||{})[f];
++const ckStarted=r=>CKF.some(([f])=>ckVal(r,f));
+ 
+ /* ---------- preparação dos dados ---------- */
+ function prepare(rows){
+@@ -441,7 +472,7 @@ function prepare(rows){
+       just:normJust(r.justRaw),instr:isBlank(r.instr)?'(não informado)':String(r.instr).trim(),dataFalta,criadaEm:parseDate(r.criadaEmRaw),
+       email:String(r.email??'').trim(),empresa:isBlank(r.empresa)?'':String(r.empresa).trim(),estado:isBlank(r.estado)?'':String(r.estado).trim().toUpperCase(),
+       dataOc:parseDate(r.dataOcRaw),grupo:isBlank(r.grupo)?'':String(r.grupo).trim(),tipo:isBlank(r.tipo)?'':String(r.tipo).trim(),
+-      atend:isBlank(r.atend)?'':String(r.atend).trim(),obs:isBlank(r.obs)?'':String(r.obs).trim(),desl:parseDate(r.deslRaw),deslRaw:r.deslRaw,total:r.total};
++      atend:isBlank(r.atend)?'':String(r.atend).trim(),obs:isBlank(r.obs)?'':String(r.obs).trim(),desl:parseDate(r.deslRaw),deslRaw:r.deslRaw,total:r.total,idFalta:isBlank(r.idFalta)?'':String(r.idFalta)};
+     const key=[rec.ra,rec.turma,iso(rec.dataFalta)||String(r.dataFaltaRaw??''),rec.modulo].join('|');
+     if(seen.has(key)){DQ.dup++;continue}seen.add(key);
+     if(!dataFalta)DQ.semData++;if(rec.instr==='(não informado)')DQ.semInstr++;if(rec.just==='Não informado')DQ.justNI++;
+@@ -490,7 +521,7 @@ function prevWindow(){
+ function buildFilters(){
+   const opts=k=>[...new Set(DATA.map(r=>k==='just'?r.just:(r[k]||'(vazio)')))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true}));
+   let h=`<label>De<input type="date" id="f_de" value="${esc(F.de)}"></label><label>Até<input type="date" id="f_ate" value="${esc(F.ate)}"></label>`;
+-  for(const[k,l]of FKEYS)h+=`<label>${esc(l)}<select id="f_${k}"><option value="">Todos</option>${opts(k).map(o=>`<option${o===F[k]?' selected':''}>${esc(o)}</option>`).join('')}</select></label>`;
++  for(const[k,l]of fkeys())h+=`<label>${esc(l)}<select id="f_${k}"><option value="">Todos</option>${opts(k).map(o=>`<option${o===F[k]?' selected':''}>${esc(o)}</option>`).join('')}</select></label>`;
+   $('#fgrid').innerHTML=h;
+   $('#fgrid').querySelectorAll('select,input').forEach(el=>el.addEventListener('change',()=>{F[el.id.slice(2)]=el.value;page=0;render()}));
+   const ti=$('#tInstr');ti.innerHTML=`<option value="">Todos os instrutores</option>`+opts('instr').map(o=>`<option>${esc(o)}</option>`).join('');
+@@ -521,7 +552,7 @@ function renderHeader(rows){
+   const ds=rows.map(r=>r.dataFalta).filter(Boolean);
+   const a=F.de?parseDate(F.de):(ds.length?new Date(Math.min(...ds)):null),b=F.ate?parseDate(F.ate):(ds.length?new Date(Math.max(...ds)):null);
+   $('#mPer').textContent=a&&b?`${fD(a)} a ${fD(b)}`:'—';
+-  $('#sampleTag').textContent=SOURCE.sample?'Dados de exemplo — entre com seu e-mail para ver a base real.':`Fonte: ${SOURCE.name}`;
++  $('#sampleTag').textContent=SOURCE.sample?'Dados de exemplo — entre com seu e-mail para ver a base real.':INS()?`Minhas faltas · ${MEU_NOME.replace(/\s+/g," ").trim()} · ${SOURCE.name}`:`Fonte: ${SOURCE.name}`;
+ }
+ 
+ /* ---------- KPIs ---------- */
+@@ -540,7 +571,7 @@ function renderKPIs(rows){
+     card('just','j','var(--just)','Justificadas',nf.format(k.j),`${pf(k.pj)} do total`,d(k.j,p.j,false,null)),
+     card('nj','n','var(--nj)','Não justificadas',nf.format(k.nj),`${pf(k.t?k.nj/k.t:NaN)} do total`,d(k.nj,p.nj,false,true),`Registros com JUSTIFICADA vazia (${nf.format(k.t-k.j-k.nj)}) não entram aqui nem nas justificadas.`),
+     card('oc','o','var(--oc)','Faltas com ocorrência',nf.format(k.oc),`${pf(k.po)} do total`,d(k.oc,p.oc,false,null)),
+-    card('instr','i','var(--brand-2)','Instrutores com registros',nf.format(k.ins),'no período filtrado',d(k.ins,p.ins,false,null)),
++    INS()?'':card('instr','i','var(--brand-2)','Instrutores com registros',nf.format(k.ins),'no período filtrado',d(k.ins,p.ins,false,null)),
+     card('just','p','var(--just)','% de justificativas',pf(k.pj),'justificadas ÷ total',d(k.pj,p.pj,true,null),'',`<span class="meter"><i style="width:${(k.pj||0)*100}%;background:var(--just)"></i></span>`),
+     card('oc','p','var(--oc)','% com ocorrência',pf(k.po),'com ocorrência ÷ total',d(k.po,p.po,true,null),'',`<span class="meter"><i style="width:${(k.po||0)*100}%;background:var(--oc)"></i></span>`)
+   ].join('');
+@@ -592,7 +623,7 @@ function renderOc(rows){
+   $('#fieldfill').innerHTML=`<div style="font-size:12.5px;color:var(--mut);font-weight:600">Preenchimento dos campos nas faltas com ocorrência</div>`+fields.map(([l,f])=>{const v=oc.filter(f).length;return`<div class="bar" style="cursor:default"><span class="k" style="font-size:12px">${l}</span><span class="t"><i style="width:${n?v/n*100:0}%;background:var(--brand-2)"></i></span><span class="v">${pf(n?v/n:NaN)}</span></div>`}).join('');
+   bars('bGrupo',countBy(oc,r=>r.grupo||'(não informado)'),'grupo',{color:'var(--oc)',total:n});
+   bars('bTipo',countBy(oc,r=>r.tipo||'(não informado)'),'tipo',{color:'var(--oc)',total:n});
+-  bars('bOcInstr',countBy(oc,r=>r.instr).map(e=>({...e,parts:[[e.rs.filter(r=>r.atend).length,'var(--ok)','Com atendimento'],[e.rs.filter(r=>!r.atend).length,'var(--oc)','Sem atendimento']]})),'instr');
++  if(!INS())bars('bOcInstr',countBy(oc,r=>r.instr).map(e=>({...e,parts:[[e.rs.filter(r=>r.atend).length,'var(--ok)','Com atendimento'],[e.rs.filter(r=>!r.atend).length,'var(--oc)','Sem atendimento']]})),'instr');
+   bars('bAtend',countBy(oc,r=>r.atend||'(vazio)'),'atend',{color:'var(--ok)',total:n});
+   bars('bOcUF',countBy(oc,r=>r.estado||'(vazio)'),'estado',{color:'var(--oc)'});
+   bars('bOcEmp',countBy(oc,r=>r.empresa||'(vazio)'),'empresa',{color:'var(--oc)'});
+@@ -618,20 +649,22 @@ function renderCharts(rows){
+   o2.plugins.tooltip.callbacks={label:i=>`${i.dataset.label}: ${nf.format(i.raw)}`};
+   const oc=css('--oc'),ok=css('--ok');
+   chart('cOcMes',{type:'line',data:{labels,datasets:[{label:'Faltas com ocorrência',data:ms.map(([,rs])=>rs.filter(r=>r.hasOc).length),borderColor:oc,backgroundColor:oc,borderWidth:2,pointRadius:4,pointBorderColor:css('--panel'),pointBorderWidth:2,tension:.25},{label:'Com atendimento registrado',data:ms.map(([,rs])=>rs.filter(r=>r.hasOc&&r.atend).length),borderColor:ok,backgroundColor:ok,borderWidth:2,pointRadius:4,pointBorderColor:css('--panel'),pointBorderWidth:2,tension:.25,borderDash:[5,4]}]},options:{...o2,plugins:{...o2.plugins,legend:{display:true,position:'top',align:'start',labels:{color:css('--mut'),boxWidth:10,boxHeight:10,usePointStyle:true}}}}});
+-  // scatter
++  // scatter (comparativo entre instrutores: só na visão administrativa)
++  if(!INS()){
+   const st=instrStats(rows);const o3=baseOpts();o3.scales.x={title:{display:true,text:'Faltas registradas',color:css('--mut')},grid:{color:css('--line')},ticks:{color:css('--mut')},beginAtZero:true};
+   o3.scales.y={min:0,max:100,title:{display:true,text:'% justificadas',color:css('--mut')},grid:{color:css('--line')},ticks:{color:css('--mut'),callback:v=>v+'%'}};
+   o3.plugins.tooltip.callbacks={label:i=>{const x=st[i.dataIndex];return[`${x.n}`,`${nf.format(x.tot)} faltas · ${pf(x.j/x.tot)} justificadas`,`${x.turmas} turma(s) · ${nf.format(x.oc)} com ocorrência`]}};
+   o3.onClick=(e,els)=>{if(els.length){const x=st[els[0].index];selInstr(x.n,false);toast(`Filtrado: ${x.n}`)}};
+   const b2=css('--brand-2'),ac=css('--brand-accent');
+   chart('cScatter',{type:'scatter',data:{datasets:[{data:st.map(x=>({x:x.tot,y:x.j/x.tot*100})),backgroundColor:st.map(x=>x.n===F.instr?ac:b2),pointRadius:st.map(x=>Math.min(14,5+x.turmas*1.5)),pointHoverRadius:st.map(x=>Math.min(16,7+x.turmas*1.5)),borderColor:css('--panel'),borderWidth:2}]},options:o3});
++  }else if(charts.cScatter){charts.cScatter.destroy();delete charts.cScatter}
+   // justificadas x não
+   const t=rows.length,parts=justParts(rows);
+   $('#jvn').innerHTML=t?`<div class="meter" style="height:26px;border-radius:8px">${parts.map(([v,c,l])=>v?`<i style="width:${v/t*100}%;background:${c}" title="${l}: ${nf.format(v)}"></i>`:'').join('')}</div>
+    <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:14px">${parts.map(([v,c,l])=>`<button class="ac" data-j="${l}"><b style="color:${c}">${pf(v/t)}</b><span>${l} · ${nf.format(v)}</span></button>`).join('')}</div>
+    <p class="note">Registros com JUSTIFICADA vazia ficam como “Não informado” — não são tratados como não justificados.</p>`:'<div class="empty">Sem dados.</div>';
+   $('#jvn').querySelectorAll('[data-j]').forEach(b=>b.addEventListener('click',()=>setF('just',b.dataset.j)));
+-  bars('bInstr',countBy(rows,r=>r.instr).map(e=>({...e,parts:justParts(e.rs)})),'instr',{limit:12});
++  if(!INS())bars('bInstr',countBy(rows,r=>r.instr).map(e=>({...e,parts:justParts(e.rs)})),'instr',{limit:12});
+   bars('bUF',countBy(rows,r=>r.estado||'(vazio)'),'estado',{total:t});
+   bars('bEmp',countBy(rows,r=>r.empresa||'(vazio)'),'empresa',{total:t});
+   bars('bMod',countBy(rows,r=>r.modulo||'(vazio)').sort((a,b)=>a.k.localeCompare(b.k,'pt-BR',{numeric:true})),'modulo',{total:t});
+@@ -640,43 +673,100 @@ function renderCharts(rows){
+ 
+ /* ---------- tabela ---------- */
+ const COLS=[['_st','Situação'],['ra','RA'],['nome','NOME'],['turma','CODTURMA'],['modulo','MODULO'],['just','JUSTIFICADA'],['instr','Criada por'],['dataFalta','DATA_FALTA'],['criadaEm','Criada em'],['email','EMAIL JOVEM'],['empresa','EMPRESA'],['estado','ESTADO'],['dataOc','DATAOCORRENCIA'],['grupo','GRUPO_OCORRENCIA'],['tipo','TIPO_OCORRENCIA'],['atend','ATENDIMENTO_RESPONSAVEL'],['obs','OBSERVACOES'],['desl','DATA DESLIGAMENTO'],['total','Total Geral']];
+-const SCOPES={just:['Justificadas',r=>r.just==='Justificada'],nj:['Não justificadas',r=>r.just==='Não justificada'],oc:['Com ocorrência',r=>r.hasOc],atend:['Ocorrências com atendimento',r=>r.hasOc&&r.atend],comp:['Ocorrências completas',r=>r.acomp==='Completo'],verif:['Ocorrências sem atendimento registrado',r=>r.acomp==='Verificar']};
+-const cell=(r,k)=>{const v=r[k];if(k==='desl')return v?fD(v):(isBlank(r.deslRaw)?'':String(r.deslRaw));if(v instanceof Date)return k==='criadaEm'?fDT(v):fD(v);return v??''};
+-const stTxt=r=>[r.just,r.hasOc?'Ocorrência':'',r.acomp==='Verificar'?'Verificar atendimento':r.hasOc?'Atendimento registrado':''].filter(Boolean).join(' ');
++/* visão do instrutor: colunas originais pedidas + colunas editáveis do checklist (logo após o nome do jovem) */
++const COLS_INS=[['_st','Situação'],['ra','RA'],['nome','NOME'],...CKF.map(([f,l])=>['ck_'+f,l]),['ck_data','ÚLTIMA ALTERAÇÃO'],['turma','CODTURMA'],['modulo','MODULO'],['just','JUSTIFICADA'],['instr','Criada por'],['dataFalta','DATA_FALTA'],['empresa','EMPRESA'],['estado','ESTADO'],['dataOc','DATAOCORRENCIA'],['grupo','GRUPO_OCORRENCIA'],['tipo','TIPO_OCORRENCIA'],['atend','ATENDIMENTO_RESPONSAVEL'],['obs','OBSERVACOES']];
++const cols=()=>INS()?COLS_INS:COLS;
++const SCOPES={just:['Justificadas',r=>r.just==='Justificada'],nj:['Não justificadas',r=>r.just==='Não justificada'],oc:['Com ocorrência',r=>r.hasOc],atend:['Ocorrências com atendimento',r=>r.hasOc&&r.atend],comp:['Ocorrências completas',r=>r.acomp==='Completo'],verif:['Ocorrências sem atendimento registrado',r=>r.acomp==='Verificar'],
++  ck_none:['Sem acompanhamento iniciado',r=>!ckStarted(r)],...Object.fromEntries(CKF.map(([f,,l])=>['ck_'+f,[l,r=>ckVal(r,f)]]))};
++const ckDate=r=>{const c=ckOf(r);return c&&c.data_ultima_alteracao?new Date(c.data_ultima_alteracao):null};
++const cell=(r,k)=>{if(k==='ck_data'){const d=ckDate(r);return d?fDT(d):''}if(k.startsWith('ck_'))return ckVal(r,k.slice(3))?'Sim':'Não';
++  const v=r[k];if(k==='desl')return v?fD(v):(isBlank(r.deslRaw)?'':String(r.deslRaw));if(v instanceof Date)return k==='criadaEm'?fDT(v):fD(v);return v??''};
++const stTxt=r=>[r.just,r.hasOc?'Ocorrência':'',r.acomp==='Verificar'?'Verificar atendimento':r.hasOc?'Atendimento registrado':'',INS()?(ckStarted(r)?'Em acompanhamento':'Não acompanhada'):''].filter(Boolean).join(' ');
++const sortVal=(r,k)=>k==='_st'?stTxt(r):k==='ck_data'?ckDate(r):k.startsWith('ck_')?cell(r,k):r[k];
+ function tableRows(){
+   let rows=cur();if(scope&&SCOPES[scope])rows=rows.filter(SCOPES[scope][1]);
+   const q=search.trim().toLowerCase();if(q)rows=rows.filter(r=>r.nome.toLowerCase().includes(q)||r.ra.toLowerCase().includes(q));
+   for(const k in colF){const q2=colF[k].trim().toLowerCase();if(!q2)continue;rows=rows.filter(r=>String(k==='_st'?stTxt(r):cell(r,k)).toLowerCase().includes(q2))}
+-  const k=sortK;rows=[...rows].sort((a,b)=>{let x=a[k],y=b[k];if(k==='_st'){x=stTxt(a);y=stTxt(b)}if(x instanceof Date||y instanceof Date){x=x?+x:-Infinity;y=y?+y:-Infinity;return(x-y)*sortD}return String(x??'').localeCompare(String(y??''),'pt-BR',{numeric:true})*sortD});
++  const k=sortK;rows=[...rows].sort((a,b)=>{let x=sortVal(a,k),y=sortVal(b,k);if(x instanceof Date||y instanceof Date){x=x?+x:-Infinity;y=y?+y:-Infinity;return(x-y)*sortD}return String(x??'').localeCompare(String(y??''),'pt-BR',{numeric:true})*sortD});
+   return rows;
+ }
+ function buildTableHead(){
+-  $('#det').innerHTML=`<thead><tr>${COLS.map(([k,l])=>`<th data-k="${k}" title="Ordenar">${esc(l)} <span data-arrow></span></th>`).join('')}</tr><tr class="cf">${COLS.map(([k,l])=>`<th><input data-cf="${k}" placeholder="Filtrar" aria-label="Filtrar ${esc(l)}"></th>`).join('')}</tr></thead><tbody></tbody>`;
++  for(const k in colF)delete colF[k];
++  $('#det').innerHTML=`<thead><tr>${cols().map(([k,l])=>`<th data-k="${k}"${k.startsWith('ck_')?' class="ckh"':''} title="Ordenar">${esc(l)} <span data-arrow></span></th>`).join('')}</tr><tr class="cf">${cols().map(([k,l])=>`<th><input data-cf="${k}" placeholder="${k.startsWith('ck_')&&k!=='ck_data'?'Sim / Não':'Filtrar'}" aria-label="Filtrar ${esc(l)}"></th>`).join('')}</tr></thead><tbody></tbody>`;
+   $('#det').querySelectorAll('tr:first-child th').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;if(sortK===k)sortD*=-1;else{sortK=k;sortD=1}renderTable()}));
+   $('#det').querySelectorAll('[data-cf]').forEach(i=>i.addEventListener('input',()=>{colF[i.dataset.cf]=i.value;page=0;renderTable()}));
+ }
++const ckCell=(r,f)=>{const on=ckVal(r,f),lab=CKF.find(x=>x[0]===f)[1];
++  return r.idFalta?`<td class="ck"><label class="tg"><input type="checkbox" data-ck="${f}" data-id="${esc(r.idFalta)}"${on?' checked':''} aria-label="${esc(lab)} — ${esc(r.nome)} em ${esc(cell(r,'dataFalta'))}"><span>${on?'Sim':'Não'}</span></label></td>`:`<td class="ck" title="Falta sem identificador">—</td>`};
+ function renderTable(){
++  const ins=INS(),C=cols();
+   const rows=tableRows();const pages=Math.max(1,Math.ceil(rows.length/PS));if(page>=pages)page=pages-1;
+   const sl=rows.slice(page*PS,page*PS+PS);
+   $('#det').querySelectorAll('[data-arrow]').forEach(s=>{s.textContent=s.parentElement.dataset.k===sortK?(sortD>0?'▲':'▼'):''});
+   const jb=r=>r.just==='Justificada'?'<span class="badge b-j">✓ Justificada</span>':r.just==='Não justificada'?'<span class="badge b-n">✕ Não justificada</span>':'<span class="badge b-i">? Não informado</span>';
+-  $('#det tbody').innerHTML=sl.length?sl.map(r=>`<tr class="${r.just==='Justificada'?'rj':r.just==='Não justificada'?'rn':'ri'}"><td>${r.hasOc?'<span class="badge b-o">Ocorrência</span> ':''}${r.acomp==='Verificar'?'<span class="badge b-w" title="Ocorrência sem ATENDIMENTO_RESPONSAVEL">Verificar</span>':r.hasOc?'<span class="badge b-ok" title="Atendimento registrado">Atendimento</span>':''}</td>`+
+-    COLS.slice(1).map(([k])=>k==='just'?`<td>${jb(r)}</td>`:`<td${k==='obs'?' class="obs"':''} title="${esc(cell(r,k))}">${esc(cell(r,k))}</td>`).join('')+'</tr>').join(''):`<tr><td colspan="${COLS.length}" class="empty">Nenhum registro encontrado.</td></tr>`;
++  $('#det tbody').innerHTML=sl.length?sl.map(r=>{const na=ins&&!ckStarted(r);
++    return `<tr class="${r.just==='Justificada'?'rj':r.just==='Não justificada'?'rn':'ri'}${na?' na':''}"><td>${na?'<span class="badge b-w" title="Nenhum item do checklist marcado">Não acompanhada</span> ':''}${r.hasOc?'<span class="badge b-o">Ocorrência</span> ':''}${r.acomp==='Verificar'?'<span class="badge b-w" title="Ocorrência sem ATENDIMENTO_RESPONSAVEL">Verificar</span>':r.hasOc?'<span class="badge b-ok" title="Atendimento registrado">Atendimento</span>':''}</td>`+
++    C.slice(1).map(([k])=>k==='just'?`<td>${jb(r)}</td>`:k==='ck_data'?`<td title="${esc(ckOf(r)?.atualizado_por?'por '+ckOf(r).atualizado_por:'')}">${esc(cell(r,k))||'<span style="color:var(--mut)">—</span>'}</td>`:k.startsWith('ck_')?ckCell(r,k.slice(3)):`<td${k==='obs'?' class="obs"':''} title="${esc(cell(r,k))}">${esc(cell(r,k))}</td>`).join('')+'</tr>'}).join(''):`<tr><td colspan="${C.length}" class="empty">Nenhum registro encontrado.</td></tr>`;
+   $('#pInfo').textContent=rows.length?`${nf.format(page*PS+1)}–${nf.format(Math.min(rows.length,page*PS+PS))} de ${nf.format(rows.length)} registros · página ${page+1} de ${pages}`:'0 registros';
+   $('#pPrev').disabled=page===0;$('#pNext').disabled=page>=pages-1;
+   $('#scopeChip').classList.toggle('on',!!scope);$('#scopeTxt').textContent=scope?'Recorte: '+SCOPES[scope][0]:'';
+ }
+ 
++/* ---------- checklist do instrutor: indicadores e gravação automática ---------- */
++function renderCkKpis(rows){
++  if(!INS())return;
++  const t=rows.length,cnt=f=>rows.filter(r=>ckVal(r,f)).length,none=rows.filter(r=>!ckStarted(r)).length;
++  const ic={t:'<path d="M4 4h12v12H4z" fill="none" stroke="#fff" stroke-width="2"/><path d="M7 8h6M7 12h4" stroke="#fff" stroke-width="2"/>',
++    email_enviado:'<rect x="3" y="5" width="14" height="10" rx="1.5" fill="none" stroke="#fff" stroke-width="2"/><path d="M3.5 6l6.5 5 6.5-5" fill="none" stroke="#fff" stroke-width="2"/>',
++    resposta_recebida:'<path d="M8 6L3 10l5 4M3 10h9a5 5 0 015 5" fill="none" stroke="#fff" stroke-width="2"/>',
++    falta_justificada:'<path d="M4 10l4 4 8-8" fill="none" stroke="#fff" stroke-width="2.4"/>',
++    ocorrencia_lancada:'<path d="M10 3l8 14H2z" fill="none" stroke="#fff" stroke-width="2"/><path d="M10 8v4" stroke="#fff" stroke-width="2"/>',
++    none:'<circle cx="10" cy="10" r="7" fill="none" stroke="#fff" stroke-width="2"/><path d="M10 6v4l3 2" fill="none" stroke="#fff" stroke-width="2"/>'};
++  const col={email_enviado:'var(--brand-2)',resposta_recebida:'var(--brand-2)',falta_justificada:'var(--just)',ocorrencia_lancada:'var(--oc)'};
++  const card=(sc,i,c,lab,v,sub)=>`<button class="kpi" data-scope="${sc}"><span class="lab"><span class="ico" style="background:${c}"><svg width="18" height="18" viewBox="0 0 20 20">${ic[i]}</svg></span>${lab}</span><span class="val">${nf.format(v)}</span><span class="sub">${sub}</span><span class="meter"><i style="width:${t?v/t*100:0}%;background:${c}"></i></span></button>`;
++  $('#ckkpis').innerHTML=card('all','t','var(--brand-1)','Total de faltas',t,`${nf.format(new Set(rows.map(r=>r.ra)).size)} jovens distintos`)
++    +CKF.map(([f,,l])=>{const v=cnt(f);return card('ck_'+f,f,col[f],l,v,`${pf(t?v/t:NaN)} das faltas`)}).join('')
++    +card('ck_none','none','var(--warn)','Sem acompanhamento iniciado',none,`${pf(t?none/t:NaN)} das faltas · nenhum item marcado`);
++  $('#ckkpis').querySelectorAll('.kpi').forEach(b=>b.addEventListener('click',()=>{const s=b.dataset.scope;scope=s==='all'?'':s;page=0;renderTable();document.getElementById('detalhe').scrollIntoView()}));
++}
++const saving=new Set();
++async function saveCk(inp){
++  const id=inp.dataset.id,f=inp.dataset.ck,val=inp.checked,key=id+'|'+f;
++  if(!INS()||!sb||saving.has(key)){inp.checked=!val;return}
++  const prev=CK.get(id)?{...CK.get(id)}:null;
++  const optim={...(prev||{id_falta:id}),[f]:val};CK.set(id,optim);
++  inp.nextElementSibling.textContent=val?'Sim':'Não';
++  saving.add(key);inp.disabled=true;
++  const{data,error}=await sb.rpc('salvar_checklist',{p_id_falta:id,p_campo:f,p_valor:val});
++  saving.delete(key);
++  if(error){/* desfaz só o campo que falhou */
++    const c=CK.get(id);if(c){if(prev)c[f]=!!prev[f];else c[f]=false}
++    toast('Não foi possível salvar: '+(error.message||'erro desconhecido'));
++  }else{/* aplica só o campo gravado + carimbo (respostas podem chegar fora de ordem) */
++    const row=Array.isArray(data)?data[0]:data;const c=CK.get(id)||{id_falta:id};
++    c[f]=!!(row&&row[f]);c.atualizado_por=row?.atualizado_por||c.atualizado_por;c.data_ultima_alteracao=row?.data_ultima_alteracao||new Date().toISOString();CK.set(id,c);
++    toast('Acompanhamento salvo.');
++  }
++  const rows=cur();renderCkKpis(rows);renderTable();
++  const again=document.querySelector(`#det input[data-ck="${f}"][data-id="${CSS.escape(id)}"]`);if(again&&document.activeElement===document.body)again.focus();
++}
++async function fetchChecklist(){
++  CK.clear();
++  for(let i=0;;){const{data,error}=await sb.from('checklist_acompanhamento_faltas').select('id_falta,email_enviado,resposta_recebida,falta_justificada,ocorrencia_lancada,atualizado_por,data_ultima_alteracao').order('id_falta').range(i,i+999);
++    if(error)throw error;data.forEach(c=>CK.set(c.id_falta,c));if(data.length<1000)break;i+=data.length}
++}
++
+ /* ---------- exportação ---------- */
+ let downloads=null;
+ async function exportXlsx(){
+   if(typeof XLSX==='undefined'){toast('Biblioteca de Excel indisponível.');return}
+   const rows=tableRows();if(!rows.length){toast('Nada para exportar.');return}
+-  const out=rows.map(r=>{const o={};COLS.slice(1).forEach(([k,l])=>{o[l]=cell(r,k)});o['Possui ocorrência']=r.hasOc?'Sim':'Não';o['Acompanhamento']=r.acomp==='Verificar'?'Sem atendimento registrado':r.acomp;return o});
++  const ins=INS();
++  const out=rows.map(r=>{const o={};cols().slice(1).forEach(([k,l])=>{o[l]=cell(r,k)});if(ins)o['ALTERADO POR']=ckOf(r)?.atualizado_por||'';o['Possui ocorrência']=r.hasOc?'Sim':'Não';o['Acompanhamento']=r.acomp==='Verificar'?'Sem atendimento registrado':r.acomp;if(ins)o['Situação do checklist']=ckStarted(r)?'Em acompanhamento':'Não acompanhada';return o});
+   const ws=XLSX.utils.json_to_sheet(out);ws['!cols']=Object.keys(out[0]).map(k=>({wch:Math.min(40,Math.max(10,k.length+2))}));
+   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Faltas');
+   const buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+-  const name=`faltas_instrutores${F.instr?'_'+F.instr.replace(/[^\wÀ-ú]+/g,'_'):''}_${iso(new Date())}.xlsx`;
++  const name=ins?`minhas_faltas_${MEU_NOME.trim().replace(/[^\wÀ-ú]+/g,'_')}_${iso(new Date())}.xlsx`:`faltas_instrutores${F.instr?'_'+F.instr.replace(/[^\wÀ-ú]+/g,'_'):''}_${iso(new Date())}.xlsx`;
+   if(downloads){try{await downloads.save({filename:name,data:new Blob([buf])});toast(`${nf.format(rows.length)} registros exportados.`)}catch(e){toast(e&&e.code==='declined'?'Exportação cancelada.':'Não foi possível salvar o arquivo aqui.')}return}
+   try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));a.download=name;document.body.appendChild(a);a.click();a.remove();toast(`${nf.format(rows.length)} registros exportados.`)}catch(e){toast('Download bloqueado neste ambiente.')}
+ }
+@@ -700,7 +790,7 @@ function renderDQ(){
+ }
+ 
+ /* ---------- orquestração ---------- */
+-function render(){const rows=cur();syncFilters();renderHeader(rows);renderKPIs(rows);renderRanks(rows);renderOc(rows);renderCharts(rows);renderTable()}
++function render(){const rows=cur();syncFilters();renderHeader(rows);renderCkKpis(rows);renderKPIs(rows);if(!INS())renderRanks(rows);renderOc(rows);renderCharts(rows);renderTable()}
+ function load(rows,src){
+   const d=prepare(rows);if(!d.length){toast('Nenhum registro válido encontrado no arquivo.');return false}
+   DATA=d;SOURCE=src;const ce=DATA.map(r=>r.criadaEm).filter(Boolean);SOURCE.lastCreated=ce.length?new Date(Math.max(...ce)):null;
+@@ -718,6 +808,7 @@ $('#scopeClr').addEventListener('click',()=>{scope='';page=0;renderTable()});
+ $('#pPrev').addEventListener('click',()=>{page--;renderTable()});$('#pNext').addEventListener('click',()=>{page++;renderTable()});
+ $('#r1mode').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;r1mode=b.dataset.m;$('#r1mode').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));renderRanks(cur())});
+ $('#btnXlsx').addEventListener('click',exportXlsx);
++$('#det').addEventListener('change',e=>{const i=e.target.closest('input[data-ck]');if(i)saveCk(i)});
+ /* ---------- Supabase ---------- */
+ const COLS_DB='ra,nome,codturma,modulo,justificada,criada_por,data_falta,criada_em,email_jovem,empresa,estado,data_ocorrencia,grupo_ocorrencia,tipo_ocorrencia,atendimento_responsavel,observacoes,data_desligamento,total_geral';
+ const configured=typeof supabase!=='undefined'&&SUPABASE_KEY&&!/COLE_AQUI/.test(SUPABASE_KEY);
+@@ -731,6 +822,7 @@ const pMenu=$('#pMenu'),pBtn=$('#btnProfile');
+ function closeMenu(){pMenu.hidden=true;pBtn.setAttribute('aria-expanded','false')}
+ function setProfile(nome){/* opções de administração existem só no perfil de admin */
+   const on=!!papel;$('#whoPill').hidden=!on;closeMenu();
++  document.body.classList.toggle('ins',INS());/* visão individual simplificada do instrutor */
+   $('#admItems').hidden=!isAdmin();
+   if(!isAdmin()){$('#dlgLoad').open&&$('#dlgLoad').close();$('#dlgAdmin').open&&$('#dlgAdmin').close()}
+   if(on){$('#whoEmail').textContent=nome;$('#whoRole').textContent=isAdmin()?'Administrador':'Instrutor';$('#whoAv').textContent=(nome.trim()[0]||'?').toUpperCase()}}
+@@ -742,9 +834,17 @@ addEventListener('resize',closeMenu);addEventListener('scroll',closeMenu,{passiv
+ function showGate(msg,err){gate.hidden=false;gmsg(msg,err);papel=null;setProfile('');$('#btnRefresh').hidden=true}
+ async function fetchBase(){
+   $('#sampleTag').textContent='Buscando dados no Supabase…';
+-  const rows=[];let total=null;for(let i=0;;){const{data,error,count}=await sb.from('faltas').select(COLS_DB,i===0?{count:'exact'}:undefined).order('id').range(i,i+999);if(error)throw error;if(i===0)total=count;if(!data.length)break;rows.push(...data);i+=data.length;if(total!=null&&rows.length>=total)break}
++  /* instrutor: o banco (RLS) só devolve as faltas com "Criada por" = nome do instrutor; o id_falta é o identificador estável */
++  const ins=INS(),sel=ins?COLS_DB+',id_falta':COLS_DB;
++  const rows=[];let total=null;for(let i=0;;){const{data,error,count}=await sb.from('faltas').select(sel,i===0?{count:'exact'}:undefined).order('id').range(i,i+999);if(error)throw error;if(i===0)total=count;if(!data.length)break;rows.push(...data);i+=data.length;if(total!=null&&rows.length>=total)break}
++  if(ins){/* conferência adicional no navegador, com a mesma regra de comparação */
++    const me=normNome(MEU_NOME);for(let i=rows.length-1;i>=0;i--)if(!me||normNome(rows[i].criada_por)!==me)rows.splice(i,1);
++    $('#ckMsg').hidden=true;
++    try{await fetchChecklist()}catch(e){CK.clear();$('#ckMsg').hidden=false;$('#ckMsg').textContent='Não foi possível carregar o checklist: '+e.message+'. Verifique se o supabase_setup.sql atualizado foi executado.'}}
+   const{data:cg,error:e2}=await sb.from('cargas').select('arquivo,linhas,carregado_por,carregado_em').order('carregado_em',{ascending:false}).limit(1);if(e2)throw e2;
+   const c=cg&&cg[0];
++  if(!rows.length&&ins){DATA=prepare([]);SOURCE={sample:false,updated:c?new Date(c.carregado_em):null,by:c?.carregado_por||'',name:'Supabase'};for(const k in F)F[k]='';scope='';page=0;buildFilters();buildTableHead();renderDQ();render();
++    $('#sampleTag').textContent=MEU_NOME.trim()?`Nenhuma falta com “Criada por” = ${MEU_NOME.trim()} na base atual.`:'Seu acesso ainda não tem nome vinculado ao campo “Criada por”. Peça a um administrador para preencher seu nome em Gerenciar acessos.';return}
+   if(!rows.length){DATA=[];$('#sampleTag').textContent='A base ainda está vazia no Supabase.'+(papel==='admin'?' Use “Publicar nova base”.':' Peça a um administrador para publicá-la.');toast('Nenhum registro na base.');return}
+   load(rows,{sample:false,updated:c?new Date(c.carregado_em):null,by:c?.carregado_por||'',name:`Supabase${c?.arquivo?' · '+c.arquivo:''}`});
+   toast(`${nf.format(DATA.length)} faltas carregadas do Supabase.`);
+@@ -754,6 +854,7 @@ async function afterLogin(session){
+   const{data,error}=await sb.from('painel_usuarios').select('papel,ativo,usuario,nome').eq('user_id',session.user.id).maybeSingle();
+   if(error){showGate('Erro ao verificar o acesso: '+error.message,true);return}
+   papel=data&&data.ativo?data.papel:null;
++  MEU_NOME=data&&data.nome||'';
+   if(!papel){await sb.auth.signOut();showGate(`O usuário ${email.replace('@'+LOGIN_DOMINIO,'')} não está autorizado a ver este painel. Fale com a coordenação.`,true);return}
+   gate.hidden=true;setProfile(data.nome||data.usuario||email);$('#btnRefresh').hidden=false;
+   try{await fetchBase()}catch(e){toast('Erro ao buscar dados: '+e.message);$('#sampleTag').textContent='Não foi possível buscar os dados.'}
+@@ -825,11 +926,11 @@ async function admLoad(){
+   try{const{usuarios}=await admCall({acao:'listar'});
+     const fd=v=>v?new Date(v).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'nunca';
+     t.innerHTML='<thead><tr><th>Usuário</th><th>Nome</th><th>Papel</th><th>Situação</th><th>Último acesso</th><th>Ações</th></tr></thead><tbody>'+
+-    usuarios.map(u=>{const me=u.user_id===admMe;return `<tr class="${u.ativo?'':'off'}" data-id="${esc(u.user_id)}" data-u="${esc(u.usuario)}">
++    usuarios.map(u=>{const me=u.user_id===admMe;return `<tr class="${u.ativo?'':'off'}" data-id="${esc(u.user_id)}" data-u="${esc(u.usuario)}" data-nome="${esc(u.nome||'')}">
+       <td><b>${esc(u.usuario)}</b>${me?' <span class="badge b-o">você</span>':''}</td><td>${esc(u.nome||'—')}</td>
+       <td>${u.papel==='admin'?'<span class="badge b-o">Administrador</span>':'<span class="badge b-i">Instrutor</span>'}</td>
+       <td>${u.ativo?'<span class="badge b-ok">Ativo</span>':'<span class="badge b-n">Desativado</span>'}</td><td>${fd(u.ultimo_acesso)}</td>
+-      <td><div class="adm-acts"><button class="btn" data-a="senha">Redefinir senha</button>${me?'':`<button class="btn" data-a="papel" data-v="${u.papel==='admin'?'instrutor':'admin'}">${u.papel==='admin'?'Tornar instrutor':'Tornar admin'}</button><button class="btn" data-a="ativo" data-v="${u.ativo?0:1}">${u.ativo?'Desativar':'Reativar'}</button><button class="btn danger" data-a="excluir">Excluir</button>`}</div></td></tr>`}).join('')+'</tbody>';
++      <td><div class="adm-acts"><button class="btn" data-a="nome" title="Para instrutores, deve ser igual ao campo “Criada por” da base">Editar nome</button><button class="btn" data-a="senha">Redefinir senha</button>${me?'':`<button class="btn" data-a="papel" data-v="${u.papel==='admin'?'instrutor':'admin'}">${u.papel==='admin'?'Tornar instrutor':'Tornar admin'}</button><button class="btn" data-a="ativo" data-v="${u.ativo?0:1}">${u.ativo?'Desativar':'Reativar'}</button><button class="btn danger" data-a="excluir">Excluir</button>`}</div></td></tr>`}).join('')+'</tbody>';
+   }catch(e){t.innerHTML='';admMsg('Erro ao carregar usuários: '+e.message,true)}
+ }
+ $('#btnAdmin').addEventListener('click',async()=>{closeMenu();if(!isAdmin())return;const{data}=await sb.auth.getSession();admMe=data.session?.user.id;admMsg('');dlgA.showModal();admLoad()});
+@@ -842,7 +943,8 @@ $('#admForm').addEventListener('submit',async e=>{e.preventDefault();
+     admMsg(`Acesso criado para ${usuario}.`);$('#admForm').reset();admLoad()}catch(err){admMsg(err.message,true)}finally{b.disabled=false}});
+ $('#admTable').addEventListener('click',async e=>{const btn=e.target.closest('button[data-a]');if(!btn)return;
+   const tr=btn.closest('tr'),id=tr.dataset.id,u=tr.dataset.u,a=btn.dataset.a;let body;
+-  if(a==='senha'){const s=prompt(`Nova senha para ${u} (mínimo 6 caracteres):`);if(!s)return;body={acao:'senha',user_id:id,senha:s}}
++  if(a==='nome'){const n=prompt(`Nome de ${u} exatamente como aparece em “Criada por” (maiúsculas/minúsculas e espaços extras não importam):`,tr.dataset.nome);if(n===null)return;body={acao:'atualizar',user_id:id,nome:n.trim()}}
++  else if(a==='senha'){const s=prompt(`Nova senha para ${u} (mínimo 6 caracteres):`);if(!s)return;body={acao:'senha',user_id:id,senha:s}}
+   else if(a==='papel'){if(!confirm(`Alterar o papel de ${u} para ${btn.dataset.v==='admin'?'administrador':'instrutor'}?`))return;body={acao:'atualizar',user_id:id,papel:btn.dataset.v}}
+   else if(a==='ativo'){const on=btn.dataset.v==='1';if(!confirm(`${on?'Reativar':'Desativar'} o acesso de ${u}?`))return;body={acao:'atualizar',user_id:id,ativo:on}}
+   else if(a==='excluir'){if(!confirm(`Excluir definitivamente o acesso de ${u}? Isso não pode ser desfeito.`))return;body={acao:'excluir',user_id:id}}
+diff --git a/supabase_setup.sql b/supabase_setup.sql
+index f78cc1b..a20884b 100644
+--- a/supabase_setup.sql
++++ b/supabase_setup.sql
+@@ -3,6 +3,13 @@
+ -- Rode uma vez no SQL Editor do Supabase. Pode ser rodado de novo sem perder dados.
+ -- =====================================================================
+ 
++-- O que este script cria/garante:
++--   • painel_usuarios, faltas, cargas (base original — a tabela "faltas" não tem estrutura alterada);
++--   • RLS: administrador lê todas as faltas; instrutor lê só as que têm "Criada por" igual ao próprio nome
++--     (comparação sem diferença de maiúsculas/minúsculas e sem espaços excedentes);
++--   • faltas_identificadores + checklist_acompanhamento_faltas (acompanhamento individual de cada falta,
++--     preservado quando uma nova base é publicada) e a função salvar_checklist.
++
+ -- ---------- Tabelas ----------
+ create table if not exists public.painel_usuarios (
+   user_id   uuid primary key references auth.users(id) on delete cascade,
+@@ -28,6 +35,30 @@ create table if not exists public.cargas (
+   carregado_em timestamptz not null default now()
+ );
+ 
++-- Registro permanente dos identificadores de falta (alvo da chave estrangeira do checklist).
++-- A tabela "faltas" é substituída a cada nova base; esta não é apagada.
++create table if not exists public.faltas_identificadores (
++  id_falta            text primary key,          -- RA|CODTURMA|DATA_FALTA|MODULO
++  ra text, codturma text, data_falta date, modulo text,
++  criada_por          text,                      -- último "Criada por" visto para a falta
++  visto_primeiro_em   timestamptz not null default now(),
++  visto_por_ultimo_em timestamptz not null default now()
++);
++
++-- Checklist de acompanhamento individual de cada falta (separado da tabela de faltas).
++create table if not exists public.checklist_acompanhamento_faltas (
++  id_checklist          uuid primary key default gen_random_uuid(),
++  id_falta              text not null unique
++                        references public.faltas_identificadores(id_falta) on update cascade on delete restrict,
++  email_enviado         boolean not null default false,
++  resposta_recebida     boolean not null default false,
++  falta_justificada     boolean not null default false,
++  ocorrencia_lancada    boolean not null default false,
++  atualizado_por        text,
++  atualizado_por_id     uuid references auth.users(id) on delete set null,
++  data_ultima_alteracao timestamptz not null default now()
++);
++
+ -- ---------- Papel de quem está logado (null = sem acesso) ----------
+ create or replace function public.meu_papel()
+ returns text language sql stable security definer set search_path = '' as $$
+@@ -36,6 +67,33 @@ $$;
+ revoke execute on function public.meu_papel() from public, anon;
+ grant  execute on function public.meu_papel() to authenticated;
+ 
++-- ---------- Vínculo instrutor ↔ campo "Criada por" ----------
++-- Regra de comparação: remove espaços no início/fim, reduz espaços repetidos a um só
++-- e converte para MAIÚSCULAS. Assim "Guilherme Alves" = "GUILHERME ALVES" = " guilherme  alves ".
++create or replace function public.norm_nome(p text)
++returns text language sql immutable parallel safe set search_path = '' as $$
++  select nullif(upper(btrim(regexp_replace(coalesce(p, ''), '\s+', ' ', 'g'))), '')
++$$;
++grant execute on function public.norm_nome(text) to authenticated;
++
++-- Nome normalizado de quem está logado (campo "nome" de painel_usuarios). null = sem vínculo.
++create or replace function public.meu_nome_norm()
++returns text language sql stable security definer set search_path = '' as $$
++  select public.norm_nome(nome) from public.painel_usuarios where user_id = auth.uid() and ativo
++$$;
++revoke execute on function public.meu_nome_norm() from public, anon;
++grant  execute on function public.meu_nome_norm() to authenticated;
++
++-- Identificador estável de cada falta (não depende do "id" da tabela, que muda a cada nova base).
++-- Mesma regra de unicidade usada pelo painel: RA + CODTURMA + DATA_FALTA + MODULO.
++-- Pode ser lido como coluna calculada: .select('..., id_falta').
++create or replace function public.id_falta(f public.faltas)
++returns text language sql immutable parallel safe set search_path = '' as $$
++  select concat_ws('|', coalesce(btrim(f.ra), ''), coalesce(btrim(f.codturma), ''),
++                        coalesce(f.data_falta::text, ''), coalesce(btrim(f.modulo), ''))
++$$;
++grant execute on function public.id_falta(public.faltas) to authenticated;
++
+ -- ---------- Segurança (RLS) ----------
+ alter table public.painel_usuarios enable row level security;
+ alter table public.faltas          enable row level security;
+@@ -44,9 +102,14 @@ alter table public.cargas          enable row level security;
+ revoke all on public.painel_usuarios, public.faltas, public.cargas from anon, authenticated;
+ grant select on public.painel_usuarios, public.faltas, public.cargas to authenticated;
+ 
++-- Administrador: todas as faltas. Instrutor: somente as faltas em que "Criada por" é o próprio nome.
+ drop policy if exists "ler faltas" on public.faltas;
+ create policy "ler faltas" on public.faltas for select to authenticated
+-  using ((select public.meu_papel()) is not null);
++  using (
++    (select public.meu_papel()) = 'admin'
++    or ((select public.meu_papel()) = 'instrutor'
++        and public.norm_nome(criada_por) = (select public.meu_nome_norm()))
++  );
+ 
+ drop policy if exists "ler cargas" on public.cargas;
+ create policy "ler cargas" on public.cargas for select to authenticated
+@@ -74,6 +137,11 @@ begin
+     atendimento_responsavel,observacoes,data_desligamento,total_geral
+   from jsonb_populate_recordset(null::public.faltas, p_linhas);
+   get diagnostics n = row_count;
++  -- registra os identificadores estáveis (nunca são apagados, para preservar o checklist)
++  insert into public.faltas_identificadores (id_falta, ra, codturma, data_falta, modulo, criada_por)
++  select distinct on (public.id_falta(f)) public.id_falta(f), f.ra, f.codturma, f.data_falta, f.modulo, f.criada_por
++  from public.faltas f order by public.id_falta(f), f.id
++  on conflict (id_falta) do update set criada_por = excluded.criada_por, visto_por_ultimo_em = now();
+   select coalesce(nome, usuario) into quem from public.painel_usuarios where user_id = auth.uid();
+   insert into public.cargas (arquivo, linhas, carregado_por) values (p_arquivo, n, quem);
+   return n;
+@@ -81,6 +149,96 @@ end $$;
+ revoke execute on function public.substituir_faltas(text, jsonb) from public, anon;
+ grant  execute on function public.substituir_faltas(text, jsonb) to authenticated;
+ 
++-- ---------- Checklist de acompanhamento (visão do instrutor) ----------
++alter table public.faltas_identificadores          enable row level security;
++alter table public.checklist_acompanhamento_faltas enable row level security;
++
++revoke all on public.faltas_identificadores, public.checklist_acompanhamento_faltas from anon, authenticated;
++grant select on public.faltas_identificadores, public.checklist_acompanhamento_faltas to authenticated;
++-- Sem insert/update/delete direto: toda gravação passa pela função salvar_checklist, que valida o dono.
++
++drop policy if exists "ler identificadores" on public.faltas_identificadores;
++create policy "ler identificadores" on public.faltas_identificadores for select to authenticated
++  using (
++    (select public.meu_papel()) = 'admin'
++    or ((select public.meu_papel()) = 'instrutor'
++        and public.norm_nome(criada_por) = (select public.meu_nome_norm()))
++  );
++
++drop policy if exists "ler checklist" on public.checklist_acompanhamento_faltas;
++create policy "ler checklist" on public.checklist_acompanhamento_faltas for select to authenticated
++  using (
++    (select public.meu_papel()) = 'admin'
++    or ((select public.meu_papel()) = 'instrutor' and exists (
++          select 1 from public.faltas_identificadores i
++          where i.id_falta = checklist_acompanhamento_faltas.id_falta
++            and public.norm_nome(i.criada_por) = (select public.meu_nome_norm())))
++  );
++
++-- Salva UM campo do checklist de UMA falta (cria o registro na primeira interação, depois só atualiza).
++-- Só o instrutor cujo nome corresponde ao "Criada por" da falta na base atual pode gravar.
++create or replace function public.salvar_checklist(p_id_falta text, p_campo text, p_valor boolean)
++returns public.checklist_acompanhamento_faltas
++language plpgsql security definer set search_path = '' as $$
++declare
++  v_nome text := public.meu_nome_norm();
++  v_quem text;
++  v_f    public.faltas;
++  v_row  public.checklist_acompanhamento_faltas;
++  v_val  boolean := coalesce(p_valor, false);
++begin
++  if public.meu_papel() is null then
++    raise exception 'sem acesso ao painel' using errcode = '42501';
++  end if;
++  if v_nome is null then
++    raise exception 'seu acesso não tem nome vinculado ao campo "Criada por"' using errcode = '42501';
++  end if;
++  if p_campo not in ('email_enviado','resposta_recebida','falta_justificada','ocorrencia_lancada') then
++    raise exception 'campo inválido: %', p_campo using errcode = '22023';
++  end if;
++
++  select * into v_f from public.faltas f
++  where public.id_falta(f) = p_id_falta and public.norm_nome(f.criada_por) = v_nome
++  order by f.id limit 1;
++  if not found then
++    raise exception 'falta não encontrada ou não pertence a você' using errcode = '42501';
++  end if;
++
++  insert into public.faltas_identificadores (id_falta, ra, codturma, data_falta, modulo, criada_por)
++  values (p_id_falta, v_f.ra, v_f.codturma, v_f.data_falta, v_f.modulo, v_f.criada_por)
++  on conflict (id_falta) do update set criada_por = excluded.criada_por;
++
++  select coalesce(nullif(btrim(nome), ''), usuario) into v_quem from public.painel_usuarios where user_id = auth.uid();
++
++  insert into public.checklist_acompanhamento_faltas as c
++    (id_falta, email_enviado, resposta_recebida, falta_justificada, ocorrencia_lancada,
++     atualizado_por, atualizado_por_id, data_ultima_alteracao)
++  values (p_id_falta,
++          p_campo = 'email_enviado'      and v_val,
++          p_campo = 'resposta_recebida'  and v_val,
++          p_campo = 'falta_justificada'  and v_val,
++          p_campo = 'ocorrencia_lancada' and v_val,
++          v_quem, auth.uid(), now())
++  on conflict (id_falta) do update set
++    email_enviado      = case when p_campo = 'email_enviado'      then v_val else c.email_enviado      end,
++    resposta_recebida  = case when p_campo = 'resposta_recebida'  then v_val else c.resposta_recebida  end,
++    falta_justificada  = case when p_campo = 'falta_justificada'  then v_val else c.falta_justificada  end,
++    ocorrencia_lancada = case when p_campo = 'ocorrencia_lancada' then v_val else c.ocorrencia_lancada end,
++    atualizado_por = excluded.atualizado_por,
++    atualizado_por_id = excluded.atualizado_por_id,
++    data_ultima_alteracao = now()
++  returning * into v_row;
++  return v_row;
++end $$;
++revoke execute on function public.salvar_checklist(text, text, boolean) from public, anon;
++grant  execute on function public.salvar_checklist(text, text, boolean) to authenticated;
++
++-- Registra os identificadores das faltas que já estão na base (pode rodar de novo sem duplicar).
++insert into public.faltas_identificadores (id_falta, ra, codturma, data_falta, modulo, criada_por)
++select distinct on (public.id_falta(f)) public.id_falta(f), f.ra, f.codturma, f.data_falta, f.modulo, f.criada_por
++from public.faltas f order by public.id_falta(f), f.id
++on conflict (id_falta) do update set criada_por = excluded.criada_por, visto_por_ultimo_em = now();
++
+ -- ---------- Administrador inicial ----------
+ -- Quando o usuário abaixo for criado em Authentication → Users, ele vira admin automaticamente.
+ create or replace function public.bootstrap_admin()
