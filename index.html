@@ -683,7 +683,8 @@ function selInstr(n,go){F.instr=n;page=0;render();if(go)irPara('detalhe')}
 
 /* ---------- agregações ---------- */
 function group(rows,fn){const m=new Map();for(const r of rows){const k=fn(r);if(k==null)continue;if(!m.has(k))m.set(k,[]);m.get(k).push(r)}return m}
-function rankCompetition(list,val,asc){const s=[...list].sort((a,b)=>asc?val(a)-val(b):val(b)-val(a));let last=null,pos=0;s.forEach((x,i)=>{const v=val(x);if(last===null||Math.abs(v-last)>1e-9){pos=i+1;last=v}x.pos=pos});return s}
+/* cada ranking devolve cópias com a própria posição: os objetos de origem são compartilhados entre os rankings e não podem ser alterados */
+function rankCompetition(list,val,asc){const s=[...list].sort((a,b)=>asc?val(a)-val(b):val(b)-val(a));let last=null,pos=0;return s.map((x,i)=>{const v=val(x);if(last===null||Math.abs(v-last)>1e-9){pos=i+1;last=v}return{...x,pos}})}
 const mode=arr=>{const m=new Map();arr.filter(Boolean).forEach(v=>m.set(v,(m.get(v)||0)+1));let b='',n=0;m.forEach((c,k)=>{if(c>n){n=c;b=k}});return b?{k:b,n}:null};
 function instrStats(rows){
   return[...group(rows,r=>r.instr)].map(([n,rs])=>{const j=rs.filter(r=>r.just==='Justificada').length,oc=allOcs(rs);
