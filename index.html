@@ -316,7 +316,7 @@ body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
      <button class="pbtn" id="btnProfile" aria-haspopup="true" aria-expanded="false"><span class="av" id="whoAv">?</span><span><span class="nm" id="whoEmail"></span><span class="rl" id="whoRole"></span></span><span aria-hidden="true">▾</span></button>
      <div class="pmenu" id="pMenu" hidden>
       <div id="admItems" hidden><div class="ptag">Administração</div>
-       <button id="btnLoad">Publicar nova base</button>
+       <button id="btnLoad">Carregar dados</button>
        <button id="btnAdmin">Gerenciar acessos</button>
        <button id="btnInstr">Instrutores ativos</button><hr></div>
       <button id="btnLogout">Sair</button>
@@ -450,11 +450,12 @@ body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
 </main>
 
 <dialog id="dlgLoad"><div class="dlg">
- <h2>Publicar nova base no Supabase</h2>
- <p class="lead">Escolha o .xlsx, .xls ou .csv com as colunas RA, NOME, CODTURMA, MODULO, JUSTIFICADA, Criada por, DATA_FALTA, Criada em, EMAIL JOVEM, EMPRESA, ESTADO, DATAOCORRENCIA, GRUPO_OCORRENCIA, TIPO_OCORRENCIA, ATENDIMENTO_RESPONSAVEL, OBSERVACOES, DATA DESLIGAMENTO e Total Geral. Você confere a prévia antes de publicar; a publicação substitui a base atual para todos.</p>
+ <h2>Carregar dados (incremental)</h2>
+ <p class="lead">Escolha o .xlsx, .xls ou .csv com as colunas RA, NOME, CODTURMA, MODULO, JUSTIFICADA, Criada por, DATA_FALTA, Criada em, EMAIL JOVEM, EMPRESA, ESTADO, DATAOCORRENCIA, GRUPO_OCORRENCIA, TIPO_OCORRENCIA, ATENDIMENTO_RESPONSAVEL, OBSERVACOES, DATA DESLIGAMENTO e Total Geral. Você confere a prévia antes de carregar.</p>
+ <p class="lead"><b>A carga é incremental (merge)</b>, pela chave RA + CODTURMA + DATA_FALTA + MODULO: faltas novas são <b>inseridas</b>, faltas que já existem são <b>atualizadas</b> com os dados do arquivo (justificativa, ocorrências etc.) e as faltas que não estão no arquivo <b>continuam na base</b> sem alteração. O checklist dos instrutores é sempre mantido.</p>
  <label class="drop" id="drop">Arraste o arquivo aqui ou <b>clique para escolher</b><input type="file" id="file" accept=".xlsx,.xls,.csv" hidden></label>
  <p id="loadMsg" class="note" hidden></p>
- <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn" id="dlgClose">Cancelar</button><button class="btn pri" id="btnPublish" hidden>Publicar no Supabase</button></div>
+ <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn" id="dlgClose">Cancelar</button><button class="btn pri" id="btnPublish" hidden>Carregar no Supabase</button></div>
 </div></dialog>
 <dialog id="dlgInstr"><div class="dlg">
  <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><h2>Instrutores ativos</h2>
@@ -1131,7 +1132,7 @@ async function fetchBase(){
   const c=cg&&cg[0];
   if(!rows.length&&ins){DATA=prepare([]);SOURCE={sample:false,updated:c?new Date(c.carregado_em):null,by:c?.carregado_por||'',name:'Supabase'};for(const k in F)F[k]='';scope='';page=0;buildFilters();buildTableHead();renderDQ();render();
     setTag(`Nenhuma falta com “Criada por” = ${MEU_USUARIO}${MEU_NOME.trim()?' ou '+MEU_NOME.replace(/\s+/g,' ').trim():''} na base atual.`);return}
-  if(!rows.length){DATA=[];setTag('A base ainda está vazia.'+(papel==='admin'?' Use “Publicar nova base”.':' Peça a um administrador para publicá-la.'));toast('Nenhum registro na base.');return}
+  if(!rows.length){DATA=[];setTag('A base ainda está vazia.'+(papel==='admin'?' Use “Carregar dados”.':' Peça a um administrador para publicá-la.'));toast('Nenhum registro na base.');return}
   let inat=0;if(!ins){const{count}=await sb.from('instrutores_status').select('chave',{count:'exact',head:true}).eq('ativo',false);inat=count||0}
   load(rows,{sample:false,updated:c?new Date(c.carregado_em):null,by:c?.carregado_por||'',name:`Supabase${c?.arquivo?' · '+c.arquivo:''}`,inat});
   toast(`${nf.format(DATA.length)} faltas carregadas do Supabase.`);
@@ -1158,7 +1159,7 @@ $('#btnRefresh').addEventListener('click',async()=>{if(!sb)return;const{data}=aw
   try{await fetchBase()}catch(e){toast('Erro: '+e.message)}});
 $('#btnLogout').addEventListener('click',async()=>{await sb.auth.signOut();DATA=[];location.reload()});
 
-/* ---------- publicar nova base ---------- */
+/* ---------- carregar dados (incremental / merge) ---------- */
 const DBMAP={ra:'ra',nome:'nome',turma:'codturma',modulo:'modulo',justRaw:'justificada',instr:'criada_por',dataFaltaRaw:'data_falta',criadaEmRaw:'criada_em',email:'email_jovem',empresa:'empresa',estado:'estado',dataOcRaw:'data_ocorrencia',grupo:'grupo_ocorrencia',tipo:'tipo_ocorrencia',atend:'atendimento_responsavel',obs:'observacoes',deslRaw:'data_desligamento',total:'total_geral'};
 const DATECOLS=new Set(['data_falta','data_ocorrencia','data_desligamento']);
 function toDbRows(rows){
@@ -1184,15 +1185,15 @@ async function readFile(f){
     if(!best||best.score<5)throw new Error('Não encontrei as colunas esperadas (RA, NOME, CODTURMA, JUSTIFICADA, Criada por, DATA_FALTA…).');
     const{out,badDates}=toDbRows(best.rows);const prev=prepare(best.rows);
     pending={rows:out,name:`${f.name} · aba ${best.n}`};
-    msg.textContent=`Prévia: ${nf.format(out.length)} linhas na aba “${best.n}” → ${nf.format(prev.length)} faltas únicas (${nf.format(DQ.ocExtra)} ocorrências adicionais, ${nf.format(DQ.dup)} repetidas, ${nf.format(DQ.totais)} linhas de total).`+(badDates?` Atenção: ${nf.format(badDates)} datas não reconhecidas serão gravadas vazias.`:'')+' Todas as linhas originais serão gravadas; a deduplicação é feita no painel.';
+    msg.textContent=`Prévia: ${nf.format(out.length)} linhas na aba “${best.n}” → ${nf.format(prev.length)} faltas únicas (${nf.format(DQ.ocExtra)} ocorrências adicionais, ${nf.format(DQ.dup)} repetidas, ${nf.format(DQ.totais)} linhas de total).`+(badDates?` Atenção: ${nf.format(badDates)} datas não reconhecidas serão gravadas vazias.`:'')+' Faltas novas serão inseridas e as já existentes, atualizadas; o restante da base não muda.';
     $('#btnPublish').hidden=false;
   }catch(e){msg.textContent='Erro: '+e.message}
 }
-$('#btnPublish').addEventListener('click',async()=>{if(!pending||!sb||!isAdmin())return;const b=$('#btnPublish');b.disabled=true;b.textContent='Publicando…';
-  const{error}=await sb.rpc('substituir_faltas',{p_arquivo:pending.name,p_linhas:pending.rows});
-  b.disabled=false;b.textContent='Publicar no Supabase';
-  if(error){$('#loadMsg').textContent='Erro ao publicar: '+(error.code==='42501'?'sem permissão de administrador.':error.message);return}
-  dlg.close();toast('Base publicada.');try{await fetchBase()}catch(e){toast('Erro: '+e.message)}});
+$('#btnPublish').addEventListener('click',async()=>{if(!pending||!sb||!isAdmin())return;const b=$('#btnPublish');b.disabled=true;b.textContent='Carregando…';
+  const{data:res,error}=await sb.rpc('mesclar_faltas',{p_arquivo:pending.name,p_linhas:pending.rows});
+  b.disabled=false;b.textContent='Carregar no Supabase';
+  if(error){$('#loadMsg').textContent='Erro ao carregar: '+(error.code==='42501'?'sem permissão de administrador.':error.code==='PGRST202'?'a função mesclar_faltas ainda não existe no banco — rode o supabase_setup.sql atualizado.':error.message);return}
+  dlg.close();toast(res?`Carga concluída: ${nf.format(res.faltas_novas)} falta${res.faltas_novas===1?'':'s'} nova${res.faltas_novas===1?'':'s'} e ${nf.format(res.faltas_atualizadas)} atualizada${res.faltas_atualizadas===1?'':'s'}.`:'Carga concluída.');try{await fetchBase()}catch(e){toast('Erro: '+e.message)}});
 $('#file').addEventListener('change',e=>{if(e.target.files[0])readFile(e.target.files[0])});
 const drop=$('#drop');['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,()=>drop.classList.remove('over')));

@@ -31,7 +31,7 @@ Painel web da **demà** para acompanhar as faltas registradas pelos instrutores 
 |---|---|---|
 | **Dados visíveis** | Todas as faltas da base | Somente as faltas em que `Criada por` corresponde ao próprio usuário |
 | **Páginas** | Visão geral · Pódio · Ocorrências · Análises · Detalhamento · Qualidade da base | O que fazer · Ranking · Minhas faltas · Análises |
-| **Ações** | Publicar nova base, gerenciar acessos, ativar/inativar instrutores, exportar | Preencher o checklist de acompanhamento, enviar e-mail ao jovem, exportar |
+| **Ações** | Carregar dados (merge), gerenciar acessos, ativar/inativar instrutores, exportar | Preencher o checklist de acompanhamento, enviar e-mail ao jovem, exportar |
 
 O filtro por instrutor é aplicado **no banco de dados (RLS)**, não só na interface.
 
@@ -45,7 +45,7 @@ O filtro por instrutor é aplicado **no banco de dados (RLS)**, não só na inte
 - **Análises gráficas** por estado, empresa, turma, módulo e período.
 - **Detalhamento individual** com todas as colunas da base, ordenação e filtro em cada coluna.
 - **Qualidade da base:** relatório de inconsistências e regras aplicadas na importação.
-- **Publicar nova base** a partir de `.xlsx`, `.xls` ou `.csv`, com prévia antes de publicar.
+- **Carga incremental (merge)** a partir de `.xlsx`, `.xls` ou `.csv`, com prévia antes de carregar: insere as faltas novas, atualiza as existentes e mantém o restante da base.
 - **Gerenciar acessos:** criar acessos para todos os instrutores da base de uma vez, editar usuário, nome e senha, ativar, desativar e excluir.
 - **Instrutores ativos:** tira do painel inteiro as faltas de instrutores inativos, sem apagar nenhum dado.
 
@@ -129,14 +129,27 @@ O projeto está ligado à **Vercel**, que publica automaticamente a cada commit 
 
 ## Operação
 
-### Publicar uma nova base de faltas
+### Carregar dados (carga incremental / merge)
 
-1. Entre como **administrador** e abra o menu do perfil → **Publicar nova base**.
+1. Entre como **administrador** e abra o menu do perfil → **Carregar dados**.
 2. Escolha um arquivo `.xlsx`, `.xls` ou `.csv` com as colunas:
 
    `RA` · `NOME` · `CODTURMA` · `MODULO` · `JUSTIFICADA` · `Criada por` · `DATA_FALTA` · `Criada em` · `EMAIL JOVEM` · `EMPRESA` · `ESTADO` · `DATAOCORRENCIA` · `GRUPO_OCORRENCIA` · `TIPO_OCORRENCIA` · `ATENDIMENTO_RESPONSAVEL` · `OBSERVACOES` · `DATA DESLIGAMENTO` · `Total Geral`
 
-3. Confira a prévia e clique em **Publicar no Supabase**. A nova base substitui a anterior para todos os usuários, e **o checklist dos instrutores é mantido**.
+3. Confira a prévia e clique em **Carregar no Supabase**. Ao terminar, o painel mostra quantas faltas foram inseridas e quantas foram atualizadas.
+
+A carga usa o método **merge**, pela chave da falta `RA + CODTURMA + DATA_FALTA + MODULO`:
+
+| Situação da falta | O que acontece |
+|---|---|
+| Está no arquivo e **não existe** na base | É **inserida** |
+| Está no arquivo e **já existe** na base | É **atualizada**: as linhas dela são trocadas pelas do arquivo (justificativa, ocorrências, observações etc.) |
+| Está na base e **não veio** no arquivo | É **mantida** sem alteração |
+
+- O arquivo pode trazer só o período novo ou alterado, não precisa ser a base inteira.
+- Uma falta com várias ocorrências deve vir **com todas as linhas dela** no arquivo, porque a atualização troca o conjunto completo de linhas daquela falta.
+- O **checklist dos instrutores é sempre mantido**.
+- Cada carga fica registrada em `cargas`, com o modo (`merge`) e as quantidades de faltas novas e atualizadas.
 
 ### Criar acessos dos instrutores
 
@@ -153,22 +166,22 @@ Em **Instrutores ativos**, marque cada instrutor como ativo ou inativo. As falta
 | Tabela | Finalidade |
 |---|---|
 | `painel_usuarios` | Usuários do painel: papel (`admin`/`instrutor`), nome e status. |
-| `faltas` | Base de faltas atual, substituída a cada publicação. |
-| `cargas` | Histórico das publicações (arquivo, quantidade de linhas, autor, data). |
+| `faltas` | Base de faltas, mantida por cargas incrementais (merge). |
+| `cargas` | Histórico das cargas: arquivo, linhas, autor, data, modo e faltas novas/atualizadas. |
 | `faltas_identificadores` | Registro permanente de cada falta já publicada. |
 | `checklist_acompanhamento_faltas` | Etapas do acompanhamento de cada falta. |
 | `instrutores_status` | Instrutores marcados como ativos ou inativos. |
 
-**Identificador estável da falta:** `RA | CODTURMA | DATA_FALTA | MODULO`, exposto como a coluna calculada `id_falta`. Ele não depende do `id` da tabela `faltas`, por isso o checklist continua válido entre uma publicação e outra.
+**Identificador estável da falta:** `RA | CODTURMA | DATA_FALTA | MODULO`, exposto como a coluna calculada `id_falta`. Ele não depende do `id` da tabela `faltas`, por isso o checklist continua válido entre uma carga e outra.
 
-**Principais funções:** `substituir_faltas` (publicação da base), `salvar_checklist` (gravação das etapas, conferindo o dono da falta), `listar_instrutores_base` e `definir_instrutor_ativo`.
+**Principais funções:** `mesclar_faltas` (carga incremental/merge, usada pelo painel), `substituir_faltas` (substituição total, mantida só para uso manual no SQL), `salvar_checklist` (gravação das etapas, conferindo o dono da falta), `listar_instrutores_base` e `definir_instrutor_ativo`.
 
 ## Segurança
 
 - **As permissões são garantidas no servidor.** Esconder botões na interface é só conveniência.
 - **Leitura de dados:** exige um usuário ativo em `painel_usuarios`. O administrador lê tudo e o instrutor lê só as próprias faltas.
 - **Checklist:** não aceita insert nem update direto. A escrita passa por `salvar_checklist`, que confere no banco se a falta pertence a quem está gravando.
-- **Ações administrativas:** `substituir_faltas`, `definir_instrutor_ativo` e a Edge Function `admin-usuarios` recusam quem não for administrador ativo.
+- **Ações administrativas:** `mesclar_faltas`, `substituir_faltas`, `definir_instrutor_ativo` e a Edge Function `admin-usuarios` recusam quem não for administrador ativo.
 - **Usuários desativados** não conseguem entrar.
 - **Chaves:** o frontend usa só a chave pública. A chave secreta fica restrita à Edge Function.
 

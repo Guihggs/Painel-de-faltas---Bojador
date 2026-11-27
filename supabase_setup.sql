@@ -9,6 +9,8 @@
 --     USUÁRIO (ex.: guilherme.bezerra = GUILHERME.BEZERRA) ou NOME, sem diferença de maiúsculas/minúsculas;
 --   • faltas_identificadores + checklist_acompanhamento_faltas (acompanhamento individual de cada falta,
 --     preservado quando uma nova base é publicada) e a função salvar_checklist.
+--   • mesclar_faltas: carga INCREMENTAL (merge) usada pelo painel — insere faltas novas, atualiza as
+--     existentes (chave RA+CODTURMA+DATA_FALTA+MODULO) e mantém as que não vieram no arquivo.
 
 -- ---------- Tabelas ----------
 create table if not exists public.painel_usuarios (
@@ -153,7 +155,7 @@ create policy "ver usuarios" on public.painel_usuarios for select to authenticat
   using (user_id = (select auth.uid()) or (select public.meu_papel()) = 'admin');
 -- Criação/edição de usuários é feita só pela Edge Function "admin-usuarios" (chave secreta no servidor).
 
--- ---------- Publicar nova base (só admin) ----------
+-- ---------- Substituição total da base (só admin; o painel usa mesclar_faltas, abaixo) ----------
 create or replace function public.substituir_faltas(p_arquivo text, p_linhas jsonb)
 returns integer language plpgsql security definer set search_path = '' as $$
 declare n integer; quem text;
@@ -181,6 +183,70 @@ begin
 end $$;
 revoke execute on function public.substituir_faltas(text, jsonb) from public, anon;
 grant  execute on function public.substituir_faltas(text, jsonb) to authenticated;
+
+-- ---------- Carga incremental (MERGE) – método usado pelo painel ----------
+-- A chave de mesclagem é o identificador estável da falta: RA + CODTURMA + DATA_FALTA + MODULO.
+--   • falta que veio no arquivo e ainda não existe na base  → é INSERIDA;
+--   • falta que veio no arquivo e já existe na base         → é ATUALIZADA (as linhas dela são trocadas
+--     pelas do arquivo, o que também atualiza justificativa e ocorrências);
+--   • falta que está na base e não veio no arquivo          → é MANTIDA sem alteração.
+-- Nada é apagado fora das faltas presentes no arquivo, e o checklist dos instrutores é sempre preservado.
+alter table public.cargas add column if not exists modo               text default 'substituicao';
+alter table public.cargas add column if not exists faltas_novas       integer;
+alter table public.cargas add column if not exists faltas_atualizadas integer;
+
+create or replace function public.mesclar_faltas(p_arquivo text, p_linhas jsonb)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare n_linhas integer; n_novas integer; n_atual integer; n_rem integer; quem text;
+begin
+  if public.meu_papel() is distinct from 'admin' then
+    raise exception 'sem permissão de administrador' using errcode = '42501';
+  end if;
+  if p_linhas is null or jsonb_typeof(p_linhas) <> 'array' or jsonb_array_length(p_linhas) = 0 then
+    raise exception 'arquivo sem linhas para carregar' using errcode = '22023';
+  end if;
+
+  -- linhas recebidas, já com o identificador estável calculado
+  drop table if exists _carga, _ids;
+  create temp table _carga on commit drop as
+  select r.*, public.id_falta(r) as _id
+  from jsonb_populate_recordset(null::public.faltas, p_linhas) r;
+  n_linhas := (select count(*) from _carga);
+
+  -- quantas faltas do arquivo são novas e quantas já existiam
+  create temp table _ids on commit drop as select distinct _id from _carga;
+  select count(*) filter (where e._id is null), count(*) filter (where e._id is not null)
+    into n_novas, n_atual
+  from _ids i
+  left join (select distinct public.id_falta(f) as _id from public.faltas f) e on e._id = i._id;
+
+  -- MERGE: troca as linhas das faltas que vieram no arquivo; as demais ficam intactas
+  delete from public.faltas f using _ids i where public.id_falta(f) = i._id;
+  get diagnostics n_rem = row_count;
+  insert into public.faltas (ra,nome,codturma,modulo,justificada,criada_por,data_falta,criada_em,
+    email_jovem,empresa,estado,data_ocorrencia,grupo_ocorrencia,tipo_ocorrencia,
+    atendimento_responsavel,observacoes,data_desligamento,total_geral)
+  select ra,nome,codturma,modulo,justificada,criada_por,data_falta,criada_em,
+    email_jovem,empresa,estado,data_ocorrencia,grupo_ocorrencia,tipo_ocorrencia,
+    atendimento_responsavel,observacoes,data_desligamento,total_geral
+  from _carga;
+
+  -- registra/atualiza os identificadores estáveis (nunca são apagados, para preservar o checklist)
+  insert into public.faltas_identificadores (id_falta, ra, codturma, data_falta, modulo, criada_por)
+  select distinct on (c._id) c._id, c.ra, c.codturma, c.data_falta, c.modulo, c.criada_por
+  from _carga c order by c._id
+  on conflict (id_falta) do update set criada_por = excluded.criada_por, visto_por_ultimo_em = now();
+
+  select coalesce(nome, usuario) into quem from public.painel_usuarios where user_id = auth.uid();
+  insert into public.cargas (arquivo, linhas, carregado_por, modo, faltas_novas, faltas_atualizadas)
+  values (p_arquivo, n_linhas, quem, 'merge', n_novas, n_atual);
+
+  return jsonb_build_object('linhas', n_linhas, 'faltas_novas', n_novas,
+    'faltas_atualizadas', n_atual, 'linhas_substituidas', n_rem,
+    'total_base', (select count(*) from public.faltas));
+end $$;
+revoke execute on function public.mesclar_faltas(text, jsonb) from public, anon;
+grant  execute on function public.mesclar_faltas(text, jsonb) to authenticated;
 
 -- ---------- Checklist de acompanhamento (visão do instrutor) ----------
 -- Índices de desempenho (não alteram colunas nem dados): busca das faltas de cada instrutor.
