@@ -198,6 +198,12 @@ table.det tr.ri td:first-child{box-shadow:inset 4px 0 var(--ni)}
 dialog{border:0;border-radius:16px;padding:0;max-width:min(640px,94vw);background:var(--panel);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
 dialog::backdrop{background:rgba(8,15,30,.55)}
 .dlg{padding:22px}
+.mailopts{display:grid;gap:10px;margin:14px 0 4px}
+.mailopts button{display:flex;gap:12px;align-items:center;text-align:left;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:12px;padding:12px 14px;font-size:15px;cursor:pointer}
+.mailopts button:hover,.mailopts button:focus-visible{border-color:var(--azul);outline:none}
+.mailopts b{display:block}
+.mailopts small{color:var(--mut);font-size:12.5px}
+.mailopts .ic{font-size:22px;width:28px;text-align:center}
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:10px 16px;border-radius:10px;font-size:14px;z-index:99;opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.on{opacity:1}
 .sample{display:inline-block;margin-top:6px;font-size:12px;color:var(--carbono);background:var(--amarelo);border-radius:999px;padding:2px 10px;font-weight:500}
@@ -342,7 +348,7 @@ body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
    <h3>Como usar o painel (3 passos)</h3>
    <ol>
     <li><b>Veja suas pendentes</b> no quadro abaixo e clique em <b>Ver pendentes</b>. Aparecem só as faltas registradas por você.</li>
-    <li><b>Acompanhe cada falta</b> em ordem: <b>Contato com o jovem → Resposta recebida → Falta justificada → Ocorrência lançada</b>. O botão <b>✉ E-mail</b> já abre a mensagem pronta para o jovem e marca o contato. O que já está na base é marcado sozinho: falta com ocorrência conta como contato feito, resposta recebida e ocorrência lançada; JUSTIFICADA = Sim conta como falta justificada.</li>
+    <li><b>Acompanhe cada falta</b> em ordem: <b>Contato com o jovem → Resposta recebida → Falta justificada → Ocorrência lançada</b>. O botão <b>✉ E-mail</b> pergunta por onde enviar (Outlook no navegador ou aplicativo do computador), abre a mensagem pronta para o jovem e marca o contato. O que já está na base é marcado sozinho: falta com ocorrência conta como contato feito, resposta recebida e ocorrência lançada; JUSTIFICADA = Sim conta como falta justificada.</li>
     <li><b>Não precisa salvar:</b> cada marcação é gravada na hora, com data e hora. Quando a ocorrência é lançada, a falta fica <b>Concluída</b>.</li>
    </ol>
    <button class="btn pri" type="button" id="howtoOk">Entendi</button>
@@ -421,7 +427,7 @@ body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
  <section id="detalhe">
   <h2><span class="so-admin">Detalhamento individual</span><span class="so-ins">Minhas faltas</span></h2>
   <p class="lead so-admin">Selecione um instrutor para ver somente os registros dele. A tabela também segue os filtros gerais e as seleções feitas nos rankings e gráficos.</p>
-  <p class="lead so-ins">Marque cada etapa quando concluir — salva na hora. <b>✉ E-mail</b> abre a mensagem pronta para o jovem e marca “Contato com o jovem”. <b>Detalhes</b> mostra empresa, observações e todas as ocorrências. Etapas marcadas como “Sim · base” vieram da própria base (ocorrência registrada ou JUSTIFICADA = Sim).</p>
+  <p class="lead so-ins">Marque cada etapa quando concluir — salva na hora. <b>✉ E-mail</b> pergunta se você quer enviar pelo <b>Outlook no navegador</b> ou pelo <b>aplicativo do computador</b>, abre a mensagem pronta para o jovem e marca “Contato com o jovem”. <b>Detalhes</b> mostra empresa, observações e todas as ocorrências. Etapas marcadas como “Sim · base” vieram da própria base (ocorrência registrada ou JUSTIFICADA = Sim).</p>
   <div class="panel">
    <div class="tbar">
     <select id="tInstr" class="so-admin" aria-label="Instrutor"></select>
@@ -449,6 +455,15 @@ body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
  <footer>Projeto Bojador · Painel de acompanhamento de faltas. Identidade visual conforme o Manual da Marca Demà (fev/2024).</footer>
 </main>
 
+<dialog id="dlgMail"><div class="dlg">
+ <h2 style="margin:0 0 4px">Por onde quer enviar o e-mail?</h2>
+ <p class="lead" style="margin:0" id="mailPara"></p>
+ <div class="mailopts">
+  <button type="button" data-via="web"><span class="ic">🌐</span><span><b>Outlook no navegador</b><small>Abre o Outlook na web com a mensagem pronta para o jovem.</small></span></button>
+  <button type="button" data-via="app"><span class="ic">💻</span><span><b>Aplicativo de e-mail do computador</b><small>Abre o Outlook (ou outro aplicativo) instalado no computador.</small></span></button>
+ </div>
+ <div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn" type="button" id="mailCancel">Cancelar</button></div>
+</div></dialog>
 <dialog id="dlgLoad"><div class="dlg">
  <h2>Carregar dados (incremental)</h2>
  <p class="lead">Escolha o .xlsx, .xls ou .csv com as colunas RA, NOME, CODTURMA, MODULO, JUSTIFICADA, Criada por, DATA_FALTA, Criada em, EMAIL JOVEM, EMPRESA, ESTADO, DATAOCORRENCIA, GRUPO_OCORRENCIA, TIPO_OCORRENCIA, ATENDIMENTO_RESPONSAVEL, OBSERVACOES, DATA DESLIGAMENTO e Total Geral. Você confere a prévia antes de carregar.</p>
@@ -956,19 +971,32 @@ async function saveCk(inp){
   await setCk(id,f,val);
   const again=document.querySelector(`#det input[data-ck="${f}"][data-id="${CSS.escape(id)}"]`);if(again&&document.activeElement===document.body)again.focus();
 }
-/* ✉ E-mail: abre a mensagem pronta para o jovem e marca a etapa "E-mail enviado" */
 function textoEmail(r){
   const prim=(r.nome||'').trim().split(/\s+/)[0]||'';const quem=(MEU_NOME||MEU_USUARIO||'').replace(/\s+/g,' ').trim();
   const assunto=`Falta em ${r.dataFalta?fD(r.dataFalta):'aula'} – Projeto Bojador${r.turma?' – turma '+r.turma:''}`;
   const corpo=`Olá, ${prim}!\n\nNotamos sua ausência na aula do dia ${r.dataFalta?fD(r.dataFalta):'—'}${r.turma?` (turma ${r.turma}${r.modulo?', '+r.modulo:''})`:''}. Está tudo bem?\n\nPor favor, responda este e-mail contando o motivo da falta e, se tiver, envie o atestado ou outro documento que justifique a ausência.\n\nConte com a gente!\n${quem}\nProjeto Bojador`;
   return{assunto,corpo};
 }
+/* ✉ E-mail: sempre pergunta por onde enviar (Outlook no navegador ou aplicativo do computador) */
+let mailKey=null;
 function abrirEmail(key){
   const r=DATA.find(x=>rkey(x)===key);if(!r||!r.email)return;
-  const{assunto,corpo}=textoEmail(r);
-  const a=document.createElement('a');a.href=`mailto:${encodeURIComponent(r.email).replace(/%40/g,'@')}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
+  mailKey=key;$('#mailPara').innerHTML=`Para <b>${esc(r.nome)}</b> · ${esc(r.email)} — falta de ${esc(r.dataFalta?fD(r.dataFalta):'—')}`;
+  $('#dlgMail').showModal();$('#dlgMail [data-via="web"]').focus();
+}
+function enviarEmail(via){
+  const r=DATA.find(x=>rkey(x)===mailKey);$('#dlgMail').close();if(!r||!r.email)return;
+  const{assunto,corpo}=textoEmail(r),para=r.email.trim();
+  if(via==='web'){
+    /* Outlook na web (Microsoft 365) com destinatário, assunto e texto já preenchidos */
+    const url=`https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(para)}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+    const w=window.open(url,'_blank','noopener');if(!w){toast('O navegador bloqueou a nova aba. Permita pop-ups para este site e tente de novo.');return}
+  }else{
+    const a=document.createElement('a');a.href=`mailto:${encodeURIComponent(para).replace(/%40/g,'@')}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
+  }
   if(r.idFalta&&!ckVal(r,'email_enviado'))setCk(r.idFalta,'email_enviado',true);
 }
+$('#dlgMail').addEventListener('click',e=>{const b=e.target.closest('[data-via]');if(b){enviarEmail(b.dataset.via);return}if(e.target.id==='mailCancel'||e.target===$('#dlgMail'))$('#dlgMail').close()});
 $('#det').addEventListener('click',e=>{
   const m=e.target.closest('[data-mail]');if(m){abrirEmail(m.dataset.mail);return}
   const d=e.target.closest('[data-det]');if(d){const k=d.dataset.det;OPEN.has(k)?OPEN.delete(k):OPEN.add(k);renderTable();if(OPEN.has(k))$('.tscroll').scrollLeft=0}
