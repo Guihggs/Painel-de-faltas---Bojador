@@ -1,115 +1,185 @@
 # Painel de Faltas – Projeto Bojador
 
-Painel web da **demà** para acompanhar as faltas registradas pelos instrutores do Projeto Bojador. Mostra indicadores gerais, pódio de instrutores, ocorrências, análises por estado, empresa, turma e módulo, tabela detalhada e um relatório de qualidade da base.
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=black)
+![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=white)
+![Vercel](https://img.shields.io/badge/deploy-Vercel-000000?logo=vercel&logoColor=white)
 
-Os dados ficam no **Supabase** e só usuários autorizados entram no painel.
+Painel web da **demà** para acompanhar as faltas registradas pelos instrutores do **Projeto Bojador**. Os administradores têm uma visão completa da operação. Cada instrutor tem uma área própria, focada no acompanhamento diário das suas faltas.
+
+**Acesso em produção:** <https://painel-de-faltas-bojador.vercel.app>
+
+---
+
+## Sumário
+
+- [Visão geral](#visão-geral)
+- [Funcionalidades](#funcionalidades)
+- [Arquitetura](#arquitetura)
+- [Estrutura do repositório](#estrutura-do-repositório)
+- [Instalação e configuração](#instalação-e-configuração)
+- [Operação](#operação)
+- [Modelo de dados](#modelo-de-dados)
+- [Segurança](#segurança)
+- [Tecnologias](#tecnologias)
+
+---
+
+## Visão geral
+
+| | Administrador | Instrutor |
+|---|---|---|
+| **Dados visíveis** | Todas as faltas da base | Somente as faltas em que `Criada por` corresponde ao próprio usuário |
+| **Páginas** | Visão geral · Pódio · Ocorrências · Análises · Detalhamento · Qualidade da base | O que fazer · Ranking · Minhas faltas · Análises |
+| **Ações** | Publicar nova base, gerenciar acessos, ativar/inativar instrutores, exportar | Preencher o checklist de acompanhamento, enviar e-mail ao jovem, exportar |
+
+O filtro por instrutor é aplicado **no banco de dados (RLS)**, não só na interface.
 
 ## Funcionalidades
 
-- **Login por usuário** (ex.: `nome.sobrenome`, que vira `nome.sobrenome@renapsi.org.br`).
-- **Dois perfis de acesso:**
-  - **Instrutor** – vê uma visão individual e simplificada, só com as próprias faltas, e preenche o checklist de acompanhamento de cada falta.
-  - **Administrador** – visualiza e, no menu do perfil (canto superior), também tem **Publicar nova base** e **Gerenciar acessos**. Essas opções não aparecem para instrutores.
-- **Visão individual do instrutor:** só as faltas em que o campo `Criada por` é igual ao usuário do instrutor (ex.: `guilherme.bezerra` = `GUILHERME.BEZERRA`, sem diferença de maiúsculas/minúsculas). O filtro é aplicado no banco (RLS), não só na tela. Pódio, rankings, distribuição e comparativo entre instrutores não aparecem nessa visão.
-- **Visão do instrutor, feita para o dia a dia:**
-  - quadro **"O que fazer agora"** com as faltas pendentes e o botão **Ver pendentes**;
-  - situação única por falta (**Pendente → Em andamento → Concluída**) com o progresso das 4 etapas;
-  - tabela enxuta com nomes em português, **Detalhes** por falta (empresa, observações, todas as ocorrências) e cartões no celular;
-  - botão **✉ E-mail** com mensagem pronta para o jovem, que marca "E-mail enviado" sozinho;
-  - filtros de Período, Turma, Módulo e Situação, com atalhos **Pendentes / Esta semana / Este mês**;
-  - posição resumida no ranking ("Você está em Xº de N"), com o ranking completo sob demanda;
-  - indicadores, ocorrências e gráficos recolhidos em **Análises**; guia **Como usar** no primeiro acesso.
-- **Checklist de acompanhamento** (só instrutor): na tabela de detalhamento, cada falta tem os campos E-mail enviado, Resposta recebida, Falta justificada e Ocorrência lançada, salvos automaticamente a cada clique, com data/hora e responsável da última alteração. No topo, indicadores do checklist e das faltas ainda sem acompanhamento.
-- **Filtros** por período, instrutor, estado, empresa, turma, módulo, justificativa e ocorrências.
-- **Exportação** dos dados filtrados para Excel.
-- **Modo de demonstração** com dados de exemplo (botão "Ver com dados de exemplo" na tela de login).
-- Tema claro/escuro automático e layout adaptado a celular.
+### Para administradores
+
+- **Indicadores gerais:** total de faltas, justificadas, não justificadas, ocorrências e atendimentos.
+- **Pódio e ranking** de instrutores.
+- **Ocorrências:** distribuição por grupo, tipo, estado e responsável pelo atendimento.
+- **Análises gráficas** por estado, empresa, turma, módulo e período.
+- **Detalhamento individual** com todas as colunas da base, ordenação e filtro em cada coluna.
+- **Qualidade da base:** relatório de inconsistências e regras aplicadas na importação.
+- **Publicar nova base** a partir de `.xlsx`, `.xls` ou `.csv`, com prévia antes de publicar.
+- **Gerenciar acessos:** criar acessos para todos os instrutores da base de uma vez, editar usuário, nome e senha, ativar, desativar e excluir.
+- **Instrutores ativos:** tira do painel inteiro as faltas de instrutores inativos, sem apagar nenhum dado.
+
+### Para instrutores
+
+- **"O que fazer agora":** quadro com as faltas pendentes e um atalho direto para elas.
+- **Situação de cada falta:** Pendente → Em andamento → Concluída, com o progresso das 4 etapas.
+- **Checklist de acompanhamento:** E-mail enviado, Resposta recebida, Falta justificada e Ocorrência lançada. Cada clique é salvo na hora, com data, hora e autor da alteração.
+- **✉ E-mail:** abre uma mensagem pronta para o jovem e marca a etapa "E-mail enviado".
+- **Minhas faltas:** tabela enxuta com as colunas Jovem, Situação, Data, Turma, Módulo, **Estado**, Justificada e Ocorrências, cada uma com filtro, e um botão **Detalhes** por falta.
+- **Filtros rápidos:** Período, Turma, Módulo e Situação, com os atalhos *Pendentes*, *Esta semana* e *Este mês*.
+- **Posição no ranking** ("Você está em Xº de N"), com o ranking completo sob demanda.
+- **Guia "Como usar"** no primeiro acesso.
+
+### Recursos gerais
+
+- **Exportação para Excel** com os filtros e a ordem que estão na tela. Dá para exportar **todas as páginas** ou só as **primeiras N páginas** (25 registros por página).
+- **Filtros globais** por período, modalidade, instrutor, estado, empresa, turma, módulo, justificativa e ocorrências.
+- **Modo de demonstração** com dados fictícios ("Ver com dados de exemplo" na tela de login).
+- Layout responsivo (no celular, a tabela vira cartões) e tema claro/escuro automático.
+
+## Arquitetura
+
+```
+┌──────────────────────┐      HTTPS       ┌───────────────────────────────┐
+│  index.html (Vercel) │ ───────────────► │ Supabase                      │
+│  HTML + CSS + JS     │                  │  • Auth (login por usuário)   │
+│  Chart.js · SheetJS  │ ◄─────────────── │  • Postgres + RLS             │
+└──────────────────────┘                  │  • RPCs (salvar_checklist,    │
+                                          │    substituir_faltas, …)      │
+                                          │  • Edge Function              │
+                                          │    admin-usuarios             │
+                                          └───────────────────────────────┘
+```
+
+- **Frontend estático:** um único arquivo, sem etapa de build.
+- **Backend:** Supabase, com as regras de acesso no próprio banco (RLS e funções `security definer`).
+- **Gestão de usuários:** Edge Function que usa a chave secreta só no servidor.
 
 ## Estrutura do repositório
 
-| Arquivo | O que é |
+| Arquivo | Descrição |
 |---|---|
-| `index.html` | O painel completo (HTML, CSS e JavaScript em um só arquivo). |
-| `supabase_setup.sql` | Cria tabelas, regras de segurança (RLS), a função de publicação da base e o administrador inicial. |
-| `admin-usuarios.ts` | Edge Function do Supabase que cria, edita, redefine senha, ativa/desativa e exclui usuários. |
+| `index.html` | O painel completo (interface, estilos e lógica). |
+| `supabase_setup.sql` | Cria as tabelas, as políticas RLS, as funções e o administrador inicial. Pode ser rodado de novo sem perder dados. |
+| `admin-usuarios.ts` | Edge Function que lista, cria, edita, redefine a senha, ativa/desativa e exclui usuários. |
 
-## Como configurar
+## Instalação e configuração
 
 ### 1. Banco de dados
 
-1. No Supabase, abra **SQL Editor**.
-2. Cole e rode o conteúdo de `supabase_setup.sql`. Ele pode ser rodado de novo sem perder dados.
+1. No Supabase, abra o **SQL Editor**.
+2. Rode todo o conteúdo de `supabase_setup.sql`.
 
-Isso cria as tabelas `painel_usuarios`, `faltas`, `cargas`, `faltas_identificadores` e `checklist_acompanhamento_faltas`, ativa o RLS, cria a função `salvar_checklist` e define o administrador inicial.
+### 2. Edge Function
 
-### Criar os acessos dos instrutores
-
-Em **Gerenciar acessos → Criar acessos para todos os instrutores da base**, informe a senha inicial e clique em **Ver instrutores sem acesso**. O painel lista cada `Criada por` que ainda não tem acesso e sugere o próprio valor em minúsculas como usuário (ex.: `GUILHERME.BEZERRA` → `guilherme.bezerra`). Ao confirmar, cria um acesso de instrutor para cada um, já com o nome vinculado.
-
-Na lista de acessos, cada usuário tem **Editar usuário** (muda o login), **Editar nome** e **Editar senha**.
-
-> Depois de atualizar o `admin-usuarios.ts`, publique a Edge Function de novo no Supabase. É ela que permite trocar o usuário.
-
-> **Importante para os instrutores:** o vínculo é feito pelo **usuário** do acesso, comparado com o `Criada por` sem diferença de maiúsculas/minúsculas (ex.: `guilherme.bezerra` = `GUILHERME.BEZERRA`). O campo **Nome** também é aceito, se coincidir com o `Criada por`.
-
-### 2. Edge Function de acessos
-
-1. Em **Edge Functions**, crie uma função chamada **`admin-usuarios`**.
+1. Em **Edge Functions**, crie uma função chamada `admin-usuarios`.
 2. Cole o conteúdo de `admin-usuarios.ts` e publique.
 
-A função usa a chave secreta do próprio Supabase no servidor e só atende quem tem papel `admin` e está ativo.
+> Sempre que o `admin-usuarios.ts` mudar, publique a função de novo.
 
 ### 3. Primeiro administrador
 
-Em **Authentication → Users**, crie o usuário do administrador inicial definido em `supabase_setup.sql`. Ele vira admin automaticamente. Depois disso, os demais acessos são criados pelo próprio painel em **Gerenciar acessos**.
+Em **Authentication → Users**, crie o usuário do administrador inicial definido em `supabase_setup.sql`. Ele recebe o papel `admin` automaticamente. Os demais acessos são criados pelo próprio painel.
 
-### 4. Chaves no painel
+### 4. Configuração do frontend
 
-No início do `<script>` do `index.html`, confira:
+No início do `<script>` do `index.html`:
 
 ```js
 const SUPABASE_URL  = 'https://SEU-PROJETO.supabase.co';
-const LOGIN_DOMINIO = 'renapsi.org.br';
-const SUPABASE_KEY  = 'sb_publishable_...'; // chave PUBLISHABLE (ou anon)
+const LOGIN_DOMINIO = 'renapsi.org.br';      // usuário "nome.sobrenome" → nome.sobrenome@renapsi.org.br
+const SUPABASE_KEY  = 'sb_publishable_...';  // chave PUBLISHABLE (ou anon)
 ```
 
-> Nunca coloque no `index.html` a senha do banco nem a chave `secret`/`service_role`.
+> ⚠️ Nunca coloque no `index.html` a senha do banco nem a chave `secret`/`service_role`.
 
-### 5. Publicar o site
+### 5. Deploy
 
-O painel está publicado na Vercel em **https://painel-de-faltas-bojador.vercel.app**, que atualiza sozinha a cada commit na branch `main`. Como é um único arquivo estático, também funciona em qualquer hospedagem estática (ex.: GitHub Pages).
+O projeto está ligado à **Vercel**, que publica automaticamente a cada commit na branch `main`. Por ser um arquivo estático, também funciona em qualquer hospedagem estática, como o GitHub Pages.
 
-## Atualizar a base de faltas
+## Operação
 
-1. Entre com um usuário **administrador**.
-2. Clique no seu nome (canto superior direito) → **Publicar nova base**.
-3. Escolha o arquivo `.xlsx`, `.xls` ou `.csv` com as colunas:
-   `RA, NOME, CODTURMA, MODULO, JUSTIFICADA, Criada por, DATA_FALTA, Criada em, EMAIL JOVEM, EMPRESA, ESTADO, DATAOCORRENCIA, GRUPO_OCORRENCIA, TIPO_OCORRENCIA, ATENDIMENTO_RESPONSAVEL, OBSERVACOES, DATA DESLIGAMENTO, Total Geral`
-4. Confira a prévia e clique em **Publicar no Supabase**. A nova base substitui a anterior para todos.
+### Publicar uma nova base de faltas
 
-## Instrutores ativos
+1. Entre como **administrador** e abra o menu do perfil → **Publicar nova base**.
+2. Escolha um arquivo `.xlsx`, `.xls` ou `.csv` com as colunas:
 
-Em **Instrutores ativos** (menu do administrador), cada instrutor do campo `Criada por` pode ser marcado como **ativo** ou **inativo**. As faltas de instrutores inativos ficam fora de todo o painel — indicadores, gráficos, rankings e tabelas, para administradores e instrutores. O filtro é aplicado no banco (tabela `instrutores_status` + RLS). Nada é apagado: basta reativar.
+   `RA` · `NOME` · `CODTURMA` · `MODULO` · `JUSTIFICADA` · `Criada por` · `DATA_FALTA` · `Criada em` · `EMAIL JOVEM` · `EMPRESA` · `ESTADO` · `DATAOCORRENCIA` · `GRUPO_OCORRENCIA` · `TIPO_OCORRENCIA` · `ATENDIMENTO_RESPONSAVEL` · `OBSERVACOES` · `DATA DESLIGAMENTO` · `Total Geral`
 
-## Checklist de acompanhamento
+3. Confira a prévia e clique em **Publicar no Supabase**. A nova base substitui a anterior para todos os usuários, e **o checklist dos instrutores é mantido**.
 
-- Fica na tabela `checklist_acompanhamento_faltas`, separada de `faltas` (a tabela de faltas não é alterada).
-- Cada falta é identificada por um **ID estável**, `RA|CODTURMA|DATA_FALTA|MODULO`, que é a mesma regra de unicidade usada pelo painel. Ele não depende do `id` da tabela `faltas`, que muda a cada nova base. Esse ID é exposto como coluna calculada `id_falta`.
-- `faltas_identificadores` guarda permanentemente cada ID já publicado e é o alvo da chave estrangeira do checklist. Por isso **publicar uma nova base não apaga o checklist**.
-- A gravação é feita só pela função `salvar_checklist(id_falta, campo, valor)`. Ela confere se a falta pertence ao instrutor logado, cria o registro na primeira interação e depois só atualiza o campo alterado (`id_falta` é único, então não há duplicados). Ela também grava `atualizado_por` e `data_ultima_alteracao`.
-- "Sem acompanhamento iniciado" = nenhum dos 4 itens marcado.
+### Criar acessos dos instrutores
+
+Em **Gerenciar acessos → Criar acessos para todos os instrutores da base**, defina a senha inicial e clique em **Ver instrutores sem acesso**. O painel sugere como usuário o próprio `Criada por` em minúsculas (`GUILHERME.BEZERRA` → `guilherme.bezerra`) e cria todos os acessos de uma vez.
+
+> O vínculo entre o instrutor e as faltas compara o **usuário** (ou o **nome**) do acesso com o `Criada por`, sem diferenciar maiúsculas de minúsculas.
+
+### Ativar ou inativar instrutores
+
+Em **Instrutores ativos**, marque cada instrutor como ativo ou inativo. As faltas de um instrutor inativo saem de todos os indicadores, gráficos, rankings e tabelas. Basta reativá-lo para que elas voltem.
+
+## Modelo de dados
+
+| Tabela | Finalidade |
+|---|---|
+| `painel_usuarios` | Usuários do painel: papel (`admin`/`instrutor`), nome e status. |
+| `faltas` | Base de faltas atual, substituída a cada publicação. |
+| `cargas` | Histórico das publicações (arquivo, quantidade de linhas, autor, data). |
+| `faltas_identificadores` | Registro permanente de cada falta já publicada. |
+| `checklist_acompanhamento_faltas` | Etapas do acompanhamento de cada falta. |
+| `instrutores_status` | Instrutores marcados como ativos ou inativos. |
+
+**Identificador estável da falta:** `RA | CODTURMA | DATA_FALTA | MODULO`, exposto como a coluna calculada `id_falta`. Ele não depende do `id` da tabela `faltas`, por isso o checklist continua válido entre uma publicação e outra.
+
+**Principais funções:** `substituir_faltas` (publicação da base), `salvar_checklist` (gravação das etapas, conferindo o dono da falta), `listar_instrutores_base` e `definir_instrutor_ativo`.
 
 ## Segurança
 
-- Esconder botões na tela é só conveniência: as permissões são garantidas no servidor.
-- A leitura de `faltas` e `cargas` exige um usuário ativo em `painel_usuarios` (RLS). Administradores leem todas as faltas; instrutores, só as próprias (`Criada por` = nome do acesso).
-- O checklist só pode ser lido pelo instrutor dono da falta (ou por administradores). Não há insert/update direto: a escrita passa por `salvar_checklist`, que valida o dono no banco.
-- A publicação da base (`substituir_faltas`) e a Edge Function `admin-usuarios` recusam qualquer usuário que não seja administrador ativo.
-- Usuários desativados são bloqueados no login.
+- **As permissões são garantidas no servidor.** Esconder botões na interface é só conveniência.
+- **Leitura de dados:** exige um usuário ativo em `painel_usuarios`. O administrador lê tudo e o instrutor lê só as próprias faltas.
+- **Checklist:** não aceita insert nem update direto. A escrita passa por `salvar_checklist`, que confere no banco se a falta pertence a quem está gravando.
+- **Ações administrativas:** `substituir_faltas`, `definir_instrutor_ativo` e a Edge Function `admin-usuarios` recusam quem não for administrador ativo.
+- **Usuários desativados** não conseguem entrar.
+- **Chaves:** o frontend usa só a chave pública. A chave secreta fica restrita à Edge Function.
 
 ## Tecnologias
 
-- HTML, CSS e JavaScript puro
-- [Supabase](https://supabase.com) (Auth, Postgres com RLS, Edge Functions)
-- [Chart.js](https://www.chartjs.org/) para os gráficos
-- [SheetJS](https://sheetjs.com/) para ler e exportar planilhas
+- HTML, CSS e JavaScript puro, sem frameworks nem build
+- [Supabase](https://supabase.com): Auth, Postgres com RLS e Edge Functions (Deno)
+- [Chart.js](https://www.chartjs.org/): gráficos
+- [SheetJS](https://sheetjs.com/): leitura e exportação de planilhas
+- [Vercel](https://vercel.com): hospedagem e deploy contínuo
+
+---
+
+<sub>Projeto interno da Renapsi / demà · Projeto Bojador.</sub>
