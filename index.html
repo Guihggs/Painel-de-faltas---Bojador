@@ -452,7 +452,7 @@ body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
 <dialog id="dlgLoad"><div class="dlg">
  <h2>Carregar dados (incremental)</h2>
  <p class="lead">Escolha o .xlsx, .xls ou .csv com as colunas RA, NOME, CODTURMA, MODULO, JUSTIFICADA, Criada por, DATA_FALTA, Criada em, EMAIL JOVEM, EMPRESA, ESTADO, DATAOCORRENCIA, GRUPO_OCORRENCIA, TIPO_OCORRENCIA, ATENDIMENTO_RESPONSAVEL, OBSERVACOES, DATA DESLIGAMENTO e Total Geral. Você confere a prévia antes de carregar.</p>
- <p class="lead"><b>A carga é incremental (merge)</b>, pela chave RA + CODTURMA + DATA_FALTA + MODULO: faltas novas são <b>inseridas</b>, faltas que já existem são <b>atualizadas</b> com os dados do arquivo (justificativa, ocorrências etc.) e as faltas que não estão no arquivo <b>continuam na base</b> sem alteração. O checklist dos instrutores é sempre mantido.</p>
+ <p class="lead"><b>A carga é incremental (merge)</b>, pela chave RA + CODTURMA + DATA_FALTA + MODULO: faltas novas são <b>inseridas</b>; faltas que já existem têm os dados <b>atualizados</b> (justificativa, empresa, estado etc.) e recebem as <b>ocorrências novas</b> do arquivo. <b>Nenhuma ocorrência já registrada é apagada</b>, e as faltas que não estão no arquivo continuam na base. Campos vazios no arquivo não apagam o que já existe. O checklist dos instrutores é sempre mantido.</p>
  <label class="drop" id="drop">Arraste o arquivo aqui ou <b>clique para escolher</b><input type="file" id="file" accept=".xlsx,.xls,.csv" hidden></label>
  <p id="loadMsg" class="note" hidden></p>
  <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn" id="dlgClose">Cancelar</button><button class="btn pri" id="btnPublish" hidden>Carregar no Supabase</button></div>
@@ -1185,7 +1185,7 @@ async function readFile(f){
     if(!best||best.score<5)throw new Error('Não encontrei as colunas esperadas (RA, NOME, CODTURMA, JUSTIFICADA, Criada por, DATA_FALTA…).');
     const{out,badDates}=toDbRows(best.rows);const prev=prepare(best.rows);
     pending={rows:out,name:`${f.name} · aba ${best.n}`};
-    msg.textContent=`Prévia: ${nf.format(out.length)} linhas na aba “${best.n}” → ${nf.format(prev.length)} faltas únicas (${nf.format(DQ.ocExtra)} ocorrências adicionais, ${nf.format(DQ.dup)} repetidas, ${nf.format(DQ.totais)} linhas de total).`+(badDates?` Atenção: ${nf.format(badDates)} datas não reconhecidas serão gravadas vazias.`:'')+' Faltas novas serão inseridas e as já existentes, atualizadas; o restante da base não muda.';
+    msg.textContent=`Prévia: ${nf.format(out.length)} linhas na aba “${best.n}” → ${nf.format(prev.length)} faltas únicas (${nf.format(DQ.ocExtra)} ocorrências adicionais, ${nf.format(DQ.dup)} repetidas, ${nf.format(DQ.totais)} linhas de total).`+(badDates?` Atenção: ${nf.format(badDates)} datas não reconhecidas serão gravadas vazias.`:'')+' Faltas novas serão inseridas, as existentes serão atualizadas e ocorrências novas serão acrescentadas — nenhuma ocorrência é apagada.';
     $('#btnPublish').hidden=false;
   }catch(e){msg.textContent='Erro: '+e.message}
 }
@@ -1193,7 +1193,7 @@ $('#btnPublish').addEventListener('click',async()=>{if(!pending||!sb||!isAdmin()
   const{data:res,error}=await sb.rpc('mesclar_faltas',{p_arquivo:pending.name,p_linhas:pending.rows});
   b.disabled=false;b.textContent='Carregar no Supabase';
   if(error){$('#loadMsg').textContent='Erro ao carregar: '+(error.code==='42501'?'sem permissão de administrador.':error.code==='PGRST202'?'a função mesclar_faltas ainda não existe no banco — rode o supabase_setup.sql atualizado.':error.message);return}
-  dlg.close();toast(res?`Carga concluída: ${nf.format(res.faltas_novas)} falta${res.faltas_novas===1?'':'s'} nova${res.faltas_novas===1?'':'s'} e ${nf.format(res.faltas_atualizadas)} atualizada${res.faltas_atualizadas===1?'':'s'}.`:'Carga concluída.');try{await fetchBase()}catch(e){toast('Erro: '+e.message)}});
+  dlg.close();toast(res?`Carga concluída: ${nf.format(res.faltas_novas)} falta${res.faltas_novas===1?'':'s'} nova${res.faltas_novas===1?'':'s'}, ${nf.format(res.faltas_atualizadas)} atualizada${res.faltas_atualizadas===1?'':'s'} e ${nf.format(res.ocorrencias_novas||0)} ocorrência${res.ocorrencias_novas===1?'':'s'} nova${res.ocorrencias_novas===1?'':'s'}.`:'Carga concluída.');try{await fetchBase()}catch(e){toast('Erro: '+e.message)}});
 $('#file').addEventListener('change',e=>{if(e.target.files[0])readFile(e.target.files[0])});
 const drop=$('#drop');['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,()=>drop.classList.remove('over')));

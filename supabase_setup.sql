@@ -155,49 +155,36 @@ create policy "ver usuarios" on public.painel_usuarios for select to authenticat
   using (user_id = (select auth.uid()) or (select public.meu_papel()) = 'admin');
 -- Criação/edição de usuários é feita só pela Edge Function "admin-usuarios" (chave secreta no servidor).
 
--- ---------- Substituição total da base (só admin; o painel usa mesclar_faltas, abaixo) ----------
-create or replace function public.substituir_faltas(p_arquivo text, p_linhas jsonb)
-returns integer language plpgsql security definer set search_path = '' as $$
-declare n integer; quem text;
-begin
-  if public.meu_papel() is distinct from 'admin' then
-    raise exception 'sem permissão de administrador' using errcode = '42501';
-  end if;
-  delete from public.faltas where true;
-  insert into public.faltas (ra,nome,codturma,modulo,justificada,criada_por,data_falta,criada_em,
-    email_jovem,empresa,estado,data_ocorrencia,grupo_ocorrencia,tipo_ocorrencia,
-    atendimento_responsavel,observacoes,data_desligamento,total_geral)
-  select ra,nome,codturma,modulo,justificada,criada_por,data_falta,criada_em,
-    email_jovem,empresa,estado,data_ocorrencia,grupo_ocorrencia,tipo_ocorrencia,
-    atendimento_responsavel,observacoes,data_desligamento,total_geral
-  from jsonb_populate_recordset(null::public.faltas, p_linhas);
-  get diagnostics n = row_count;
-  -- registra os identificadores estáveis (nunca são apagados, para preservar o checklist)
-  insert into public.faltas_identificadores (id_falta, ra, codturma, data_falta, modulo, criada_por)
-  select distinct on (public.id_falta(f)) public.id_falta(f), f.ra, f.codturma, f.data_falta, f.modulo, f.criada_por
-  from public.faltas f order by public.id_falta(f), f.id
-  on conflict (id_falta) do update set criada_por = excluded.criada_por, visto_por_ultimo_em = now();
-  select coalesce(nome, usuario) into quem from public.painel_usuarios where user_id = auth.uid();
-  insert into public.cargas (arquivo, linhas, carregado_por) values (p_arquivo, n, quem);
-  return n;
-end $$;
-revoke execute on function public.substituir_faltas(text, jsonb) from public, anon;
-grant  execute on function public.substituir_faltas(text, jsonb) to authenticated;
+-- ---------- Substituição total da base: DESATIVADA ----------
+-- A base é mantida só por carga incremental (mesclar_faltas, abaixo), que nunca apaga ocorrências.
+drop function if exists public.substituir_faltas(text, jsonb);
 
 -- ---------- Carga incremental (MERGE) – método usado pelo painel ----------
--- A chave de mesclagem é o identificador estável da falta: RA + CODTURMA + DATA_FALTA + MODULO.
---   • falta que veio no arquivo e ainda não existe na base  → é INSERIDA;
---   • falta que veio no arquivo e já existe na base         → é ATUALIZADA (as linhas dela são trocadas
---     pelas do arquivo, o que também atualiza justificativa e ocorrências);
---   • falta que está na base e não veio no arquivo          → é MANTIDA sem alteração.
--- Nada é apagado fora das faltas presentes no arquivo, e o checklist dos instrutores é sempre preservado.
+-- Chave da falta: RA + CODTURMA + DATA_FALTA + MODULO (id_falta).
+-- Chave da ocorrência: id_falta + DATAOCORRENCIA + GRUPO_OCORRENCIA + TIPO_OCORRENCIA.
+--   • falta nova (não existe na base)         → é INSERIDA, com todas as ocorrências do arquivo;
+--   • falta que já existe                      → os dados da falta são ATUALIZADOS (justificativa, empresa,
+--     estado, desligamento etc.; campo vazio no arquivo não apaga o valor da base);
+--   • ocorrência nova de uma falta existente   → é ACRESCENTADA;
+--   • ocorrência que já existe                 → responsável e observações são atualizados (vazio não apaga);
+--   • falta ou ocorrência que não veio no arquivo → é MANTIDA.
+-- Nenhuma ocorrência é apagada por uma carga. O checklist dos instrutores é sempre preservado.
 alter table public.cargas add column if not exists modo               text default 'substituicao';
 alter table public.cargas add column if not exists faltas_novas       integer;
 alter table public.cargas add column if not exists faltas_atualizadas integer;
+alter table public.cargas add column if not exists ocorrencias_novas  integer;
 
+-- chave de comparação de uma ocorrência dentro da falta
+create or replace function public.chave_ocorrencia(p_data date, p_grupo text, p_tipo text)
+returns text language sql immutable parallel safe as $$
+  select pg_catalog.concat_ws('|', coalesce(p_data::text, ''),
+    pg_catalog.lower(pg_catalog.btrim(coalesce(p_grupo, ''))), pg_catalog.lower(pg_catalog.btrim(coalesce(p_tipo, ''))))
+$$;
+
+drop function if exists public.mesclar_faltas(text, jsonb);
 create or replace function public.mesclar_faltas(p_arquivo text, p_linhas jsonb)
 returns jsonb language plpgsql security definer set search_path = '' as $$
-declare n_linhas integer; n_novas integer; n_atual integer; n_rem integer; quem text;
+declare n_linhas integer; n_novas integer; n_atual integer; n_ocs integer; quem text;
 begin
   if public.meu_papel() is distinct from 'admin' then
     raise exception 'sem permissão de administrador' using errcode = '42501';
@@ -206,44 +193,87 @@ begin
     raise exception 'arquivo sem linhas para carregar' using errcode = '22023';
   end if;
 
-  -- linhas recebidas, já com o identificador estável calculado
-  drop table if exists _carga, _ids;
+  drop table if exists _carga, _base, _falta;
+  -- linhas recebidas, com as chaves calculadas
   create temp table _carga on commit drop as
-  select r.*, public.id_falta(r) as _id
+  select r.*, public.id_falta(r) as _id,
+         (r.data_ocorrencia is not null or coalesce(pg_catalog.btrim(r.grupo_ocorrencia), '') <> ''
+           or coalesce(pg_catalog.btrim(r.tipo_ocorrencia), '') <> '') as _tem_oc,
+         public.chave_ocorrencia(r.data_ocorrencia, r.grupo_ocorrencia, r.tipo_ocorrencia) as _oc
   from jsonb_populate_recordset(null::public.faltas, p_linhas) r;
   n_linhas := (select count(*) from _carga);
 
-  -- quantas faltas do arquivo são novas e quantas já existiam
-  create temp table _ids on commit drop as select distinct _id from _carga;
-  select count(*) filter (where e._id is null), count(*) filter (where e._id is not null)
+  -- faltas que já existem na base
+  create temp table _base on commit drop as select distinct public.id_falta(f) as _id from public.faltas f;
+  select count(distinct c._id) filter (where b._id is null), count(distinct c._id) filter (where b._id is not null)
     into n_novas, n_atual
-  from _ids i
-  left join (select distinct public.id_falta(f) as _id from public.faltas f) e on e._id = i._id;
+  from _carga c left join _base b on b._id = c._id;
 
-  -- MERGE: troca as linhas das faltas que vieram no arquivo; as demais ficam intactas
-  delete from public.faltas f using _ids i where public.id_falta(f) = i._id;
-  get diagnostics n_rem = row_count;
+  -- 1) dados da falta (uma linha representativa por falta do arquivo) → atualiza todas as linhas dela na base
+  create temp table _falta on commit drop as
+  select distinct on (_id) * from _carga order by _id, criada_em desc nulls last;
+  update public.faltas f set
+    nome = coalesce(n.nome, f.nome), justificada = coalesce(n.justificada, f.justificada),
+    criada_por = coalesce(n.criada_por, f.criada_por), criada_em = coalesce(n.criada_em, f.criada_em),
+    email_jovem = coalesce(n.email_jovem, f.email_jovem), empresa = coalesce(n.empresa, f.empresa),
+    estado = coalesce(n.estado, f.estado), data_desligamento = coalesce(n.data_desligamento, f.data_desligamento),
+    total_geral = coalesce(n.total_geral, f.total_geral)
+  from _falta n where public.id_falta(f) = n._id;
+
+  -- 2) ocorrências que já existem → atualiza responsável e observações
+  update public.faltas f set
+    atendimento_responsavel = coalesce(c.atendimento_responsavel, f.atendimento_responsavel),
+    observacoes = coalesce(c.observacoes, f.observacoes)
+  from (select distinct on (_id, _oc) * from _carga where _tem_oc order by _id, _oc) c
+  where public.id_falta(f) = c._id
+    and public.chave_ocorrencia(f.data_ocorrencia, f.grupo_ocorrencia, f.tipo_ocorrencia) = c._oc;
+
+  -- 3) ocorrências novas (de faltas novas ou existentes) → acrescenta
   insert into public.faltas (ra,nome,codturma,modulo,justificada,criada_por,data_falta,criada_em,
     email_jovem,empresa,estado,data_ocorrencia,grupo_ocorrencia,tipo_ocorrencia,
     atendimento_responsavel,observacoes,data_desligamento,total_geral)
-  select ra,nome,codturma,modulo,justificada,criada_por,data_falta,criada_em,
-    email_jovem,empresa,estado,data_ocorrencia,grupo_ocorrencia,tipo_ocorrencia,
-    atendimento_responsavel,observacoes,data_desligamento,total_geral
-  from _carga;
+  select c.ra,n.nome,c.codturma,c.modulo,
+    coalesce(n.justificada, e.justificada), coalesce(n.criada_por, e.criada_por), c.data_falta, coalesce(n.criada_em, e.criada_em),
+    coalesce(n.email_jovem, e.email_jovem), coalesce(n.empresa, e.empresa), coalesce(n.estado, e.estado),
+    c.data_ocorrencia,c.grupo_ocorrencia,c.tipo_ocorrencia,c.atendimento_responsavel,c.observacoes,
+    coalesce(n.data_desligamento, e.data_desligamento), coalesce(n.total_geral, e.total_geral)
+  from (select distinct on (_id, _oc) * from _carga where _tem_oc order by _id, _oc) c
+  join _falta n on n._id = c._id
+  left join lateral (select * from public.faltas f where public.id_falta(f) = c._id limit 1) e on true
+  where not exists (select 1 from public.faltas f where public.id_falta(f) = c._id
+    and public.chave_ocorrencia(f.data_ocorrencia, f.grupo_ocorrencia, f.tipo_ocorrencia) = c._oc);
+  get diagnostics n_ocs = row_count;
 
-  -- registra/atualiza os identificadores estáveis (nunca são apagados, para preservar o checklist)
+  -- 4) faltas novas sem nenhuma ocorrência no arquivo → insere a falta
+  insert into public.faltas (ra,nome,codturma,modulo,justificada,criada_por,data_falta,criada_em,
+    email_jovem,empresa,estado,data_ocorrencia,grupo_ocorrencia,tipo_ocorrencia,
+    atendimento_responsavel,observacoes,data_desligamento,total_geral)
+  select ra,nome,codturma,modulo,justificada,criada_por,data_falta,criada_em,email_jovem,empresa,estado,
+    null,null,null,atendimento_responsavel,observacoes,data_desligamento,total_geral
+  from _falta n where not exists (select 1 from public.faltas f where public.id_falta(f) = n._id);
+
+  -- 5) a linha "sem ocorrência" de uma falta deixa de ser necessária quando a falta passa a ter ocorrência
+  --    (só remove essa linha vazia; nenhuma ocorrência é apagada)
+  delete from public.faltas f
+  where f.data_ocorrencia is null and coalesce(pg_catalog.btrim(f.grupo_ocorrencia), '') = ''
+    and coalesce(pg_catalog.btrim(f.tipo_ocorrencia), '') = ''
+    and public.id_falta(f) in (select _id from _falta)
+    and exists (select 1 from public.faltas o where public.id_falta(o) = public.id_falta(f)
+      and (o.data_ocorrencia is not null or coalesce(pg_catalog.btrim(o.grupo_ocorrencia), '') <> ''
+           or coalesce(pg_catalog.btrim(o.tipo_ocorrencia), '') <> ''));
+
+  -- identificadores estáveis (nunca são apagados, para preservar o checklist)
   insert into public.faltas_identificadores (id_falta, ra, codturma, data_falta, modulo, criada_por)
-  select distinct on (c._id) c._id, c.ra, c.codturma, c.data_falta, c.modulo, c.criada_por
-  from _carga c order by c._id
-  on conflict (id_falta) do update set criada_por = excluded.criada_por, visto_por_ultimo_em = now();
+  select n._id, n.ra, n.codturma, n.data_falta, n.modulo, n.criada_por from _falta n
+  on conflict (id_falta) do update set criada_por = coalesce(excluded.criada_por, public.faltas_identificadores.criada_por),
+    visto_por_ultimo_em = now();
 
   select coalesce(nome, usuario) into quem from public.painel_usuarios where user_id = auth.uid();
-  insert into public.cargas (arquivo, linhas, carregado_por, modo, faltas_novas, faltas_atualizadas)
-  values (p_arquivo, n_linhas, quem, 'merge', n_novas, n_atual);
+  insert into public.cargas (arquivo, linhas, carregado_por, modo, faltas_novas, faltas_atualizadas, ocorrencias_novas)
+  values (p_arquivo, n_linhas, quem, 'merge', n_novas, n_atual, n_ocs);
 
-  return jsonb_build_object('linhas', n_linhas, 'faltas_novas', n_novas,
-    'faltas_atualizadas', n_atual, 'linhas_substituidas', n_rem,
-    'total_base', (select count(*) from public.faltas));
+  return jsonb_build_object('linhas', n_linhas, 'faltas_novas', n_novas, 'faltas_atualizadas', n_atual,
+    'ocorrencias_novas', n_ocs, 'total_base', (select count(*) from public.faltas));
 end $$;
 revoke execute on function public.mesclar_faltas(text, jsonb) from public, anon;
 grant  execute on function public.mesclar_faltas(text, jsonb) to authenticated;
