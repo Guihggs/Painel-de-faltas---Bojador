@@ -54,7 +54,7 @@ O filtro por instrutor é aplicado **no banco de dados (RLS)**, não só na inte
 - **"O que fazer agora":** quadro com as faltas pendentes e um atalho direto para elas.
 - **Situação de cada falta:** Pendente → Em andamento → Concluída, com o progresso das 4 etapas.
 - **Checklist de acompanhamento:** E-mail enviado, Resposta recebida, Falta justificada e Ocorrência lançada. Cada clique é salvo na hora, com data, hora e autor da alteração.
-- **✉ E-mail:** sempre pergunta por onde enviar: **Outlook no navegador** (abre o Outlook na web já com o endereço do jovem da falta, o assunto e o texto) ou **aplicativo de e-mail do computador**. Depois marca a etapa "E-mail enviado".
+- **✉ E-mail:** sempre pergunta por onde enviar: **Outlook no navegador** (abre o Outlook na web já com o endereço do jovem da falta, o assunto e o texto) ou **aplicativo de e-mail do computador**. A mensagem padrão (variáveis em negrito e os dois últimos parágrafos com marca-texto vermelho claro) aparece numa prévia e é copiada com a formatação; quando o e-mail abre, basta colar com **Ctrl+V**. Depois a etapa "E-mail enviado" é marcada.
 - **Minhas faltas:** tabela enxuta com as colunas Jovem, Situação, Data, Turma, Módulo, **Estado**, Justificada e Ocorrências, cada uma com filtro, e um botão **Detalhes** por falta.
 - **Filtros rápidos:** Período, Turma, Módulo e Situação, com os atalhos *Pendentes*, *Esta semana* e *Este mês*.
 - **Posição no ranking** ("Você está em Xº de N"), com o ranking completo sob demanda.
