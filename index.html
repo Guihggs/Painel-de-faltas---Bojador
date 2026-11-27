@@ -458,10 +458,9 @@ body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
 <dialog id="dlgMail"><div class="dlg">
  <h2 style="margin:0 0 4px">Por onde quer enviar o e-mail?</h2>
  <p class="lead" style="margin:0" id="mailPara"></p>
- <div id="mailPrev" style="margin-top:12px;max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff;color:#000;font-size:14px;user-select:text"></div>
- <p class="lead" style="margin:8px 0 0;font-size:13px">A mensagem acima, com a formatação, é <b>copiada automaticamente</b>. Quando o e-mail abrir, clique no corpo da mensagem e aperte <b>Ctrl+V</b>.</p>
+ <div id="mailPrev" style="margin-top:12px;max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff;color:#000;font-size:14px;white-space:pre-wrap;user-select:text"></div>
  <div class="mailopts">
-  <button type="button" data-via="web"><span class="ic">🌐</span><span><b>Outlook no navegador</b><small>Abre o Outlook na web já com o endereço do jovem e o assunto.</small></span></button>
+  <button type="button" data-via="web"><span class="ic">🌐</span><span><b>Outlook no navegador</b><small>Abre o Outlook na web com a mensagem pronta para o jovem.</small></span></button>
   <button type="button" data-via="app"><span class="ic">💻</span><span><b>Aplicativo de e-mail do computador</b><small>Abre o Outlook (ou outro aplicativo) instalado no computador.</small></span></button>
  </div>
  <div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn" type="button" id="mailCancel">Cancelar</button></div>
@@ -976,46 +975,31 @@ async function saveCk(inp){
 function textoEmail(r){
   const nome=(r.nome||'').trim().split(/\s+/)[0]||'';
   const dia=r.dataFalta?fD(r.dataFalta):'—',turma=r.turma||'—',mod=r.modulo||'';
-  const assunto=`Falta em ${dia} – Projeto Bojador${r.turma?' – turma '+r.turma:''}`;
-  const turmaTxt=turma+(mod?' – '+mod:'');
-  const P=[`Olá, ${nome}! Tudo bem?`,
-    `Identifiquei sua ausência no encontro do dia ${dia}, à turma: ${turmaTxt}, e gostaria de saber se está tudo bem com você?`,
+  const assunto='NOTIFICAÇÃO DE FALTA';
+  const corpo=[`Olá, ${nome}! Tudo bem?`,
+    `Identifiquei sua ausência no encontro do dia ${dia}, à turma: ${turma}${mod?' – '+mod:''}, e gostaria de saber se está tudo bem com você?`,
     'Por gentileza, responda a este e-mail informando o motivo da sua ausência. Caso possua atestado médico ou outro documento que justifique a falta, solicito que o encaminhe em anexo o mais rápido.',
     'Lembre-se de que sua participação é muito importante para o seu desenvolvimento e aprendizado!',
-    'Se precisar de ajuda, estou à disposição.'];
-  const corpo=P.join('\n\n');
-  /* versão formatada: variáveis em negrito e os dois últimos parágrafos com marca-texto vermelho claro */
-  const B=v=>`<b>${esc(v)}</b>`,MARK='background-color:#FFC7C7;';
-  const H=[`Olá, ${B(nome)}! Tudo bem?`,
-    `Identifiquei sua ausência no encontro do dia ${B(dia)}, à turma: ${B(turma)}${mod?' – '+B(mod):''}, e gostaria de saber se está tudo bem com você?`,
-    esc(P[2]),`<span style="${MARK}">${esc(P[3])}</span>`,`<span style="${MARK}">${esc(P[4])}</span>`];
-  const html=`<div style="font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000">${H.map(x=>`<p style="margin:0 0 12pt">${x}</p>`).join('')}</div>`;
-  return{assunto,corpo,html};
+    'Se precisar de ajuda, estou à disposição.'].join('\n\n');
+  return{assunto,corpo};
 }
 /* ✉ E-mail: sempre pergunta por onde enviar (Outlook no navegador ou aplicativo do computador) */
 let mailKey=null;
 function abrirEmail(key){
   const r=DATA.find(x=>rkey(x)===key);if(!r||!r.email)return;
-  mailKey=key;$('#mailPrev').innerHTML=textoEmail(r).html;$('#mailPara').innerHTML=`Para <b>${esc(r.nome)}</b> · ${esc(r.email)} — falta de ${esc(r.dataFalta?fD(r.dataFalta):'—')}`;
+  mailKey=key;$('#mailPrev').textContent=textoEmail(r).corpo;$('#mailPara').innerHTML=`Para <b>${esc(r.nome)}</b> · ${esc(r.email)} — falta de ${esc(r.dataFalta?fD(r.dataFalta):'—')}`;
   $('#dlgMail').showModal();$('#dlgMail [data-via="web"]').focus();
 }
 function enviarEmail(via){
   const r=DATA.find(x=>rkey(x)===mailKey);$('#dlgMail').close();if(!r||!r.email)return;
-  const{assunto,corpo,html}=textoEmail(r),para=r.email.trim();
-  /* a formatação (negrito e marca-texto) não passa pelo link do e-mail: a mensagem formatada vai para a
-     área de transferência e o e-mail abre com destinatário e assunto, para colar com Ctrl+V */
-  const podeCopiar=!!(navigator.clipboard&&navigator.clipboard.write&&window.ClipboardItem);
-  let copia=null;
-  if(podeCopiar){try{copia=navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([corpo],{type:'text/plain'})})])}catch(_){copia=Promise.reject()}}
-  const corpoLink=copia?'':corpo;
+  const{assunto,corpo}=textoEmail(r),para=r.email.trim();
   if(via==='web'){
-    /* Outlook na web (Microsoft 365) com destinatário e assunto preenchidos */
-    const url=`https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(para)}&subject=${encodeURIComponent(assunto)}${corpoLink?`&body=${encodeURIComponent(corpoLink)}`:''}`;
+    /* Outlook na web (Microsoft 365) com destinatário, assunto e texto já preenchidos */
+    const url=`https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(para)}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
     const w=window.open(url,'_blank','noopener');if(!w){toast('O navegador bloqueou a nova aba. Permita pop-ups para este site e tente de novo.');return}
   }else{
-    const a=document.createElement('a');a.href=`mailto:${encodeURIComponent(para).replace(/%40/g,'@')}?subject=${encodeURIComponent(assunto)}${corpoLink?`&body=${encodeURIComponent(corpoLink)}`:''}`;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
+    const a=document.createElement('a');a.href=`mailto:${encodeURIComponent(para).replace(/%40/g,'@')}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
   }
-  if(copia)copia.then(()=>toast('Mensagem formatada copiada — clique no corpo do e-mail e aperte Ctrl+V.',8000),()=>toast('Não foi possível copiar a mensagem. Copie o texto da prévia e cole no e-mail.',8000));
   if(r.idFalta&&!ckVal(r,'email_enviado'))setCk(r.idFalta,'email_enviado',true);
 }
 $('#dlgMail').addEventListener('click',e=>{const b=e.target.closest('[data-via]');if(b){enviarEmail(b.dataset.via);return}if(e.target.id==='mailCancel'||e.target===$('#dlgMail'))$('#dlgMail').close()});
