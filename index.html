@@ -163,6 +163,9 @@ h2{font-size:22px;margin:0 0 4px;line-height:1.2}
 .tbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
 .tbar input[type=search],.tbar select{height:42px;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:0 12px;font-size:15px}
 .tbar input[type=search]{flex:1 1 240px}
+.expg{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center}
+.expg input[type=number]{width:72px;height:42px;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:0 8px;font-size:15px}
+.expg label{font-size:13px;color:var(--mut);display:inline-flex;gap:6px;align-items:center}
 .btn{height:42px;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:0 14px;font-weight:700}
 .btn.pri{background:var(--brand-2);color:#fff;border-color:var(--brand-2)}
 .tscroll{overflow:auto;border:1px solid var(--line);border-radius:12px;max-height:620px}
@@ -424,7 +427,11 @@ body.ins table.det tr.cf th:first-child{position:sticky;left:0;z-index:4}
     <select id="tInstr" class="so-admin" aria-label="Instrutor"></select>
     <input type="search" id="tSearch" placeholder="Pesquisar por nome ou RA">
     <span class="chip scope" id="scopeChip"><span id="scopeTxt"></span><button id="scopeClr" aria-label="Remover recorte">×</button></span>
-    <button class="btn pri" id="btnXlsx">Exportar Excel</button>
+    <span class="expg">
+     <select id="expModo" aria-label="O que exportar"><option value="all">Todas as páginas</option><option value="n">Escolher nº de páginas</option></select>
+     <label id="expNWrap" hidden>Primeiras <input type="number" id="expN" min="1" value="1" aria-label="Quantidade de páginas a exportar"> <span id="expNMax"></span></label>
+     <button class="btn pri" id="btnXlsx">Exportar Excel</button>
+    </span>
    </div>
    <div class="legend so-ins"><span><span class="stp pend">Pendente</span> nenhuma etapa feita</span><span><span class="stp and">Em andamento</span> já começou</span><span><span class="stp conc">Concluída</span> ocorrência lançada</span></div>
    <div class="legend so-admin"><span><i style="background:var(--just)"></i>Justificada</span><span><i style="background:var(--nj)"></i>Não justificada</span><span><i style="background:var(--ni)"></i>Justificativa não informada</span><span><span class="badge b-o">Ocorrência</span></span><span><span class="badge b-ok">Atendimento registrado</span></span><span><span class="badge b-w">Verificar atendimento</span></span></div>
@@ -824,7 +831,7 @@ function renderCharts(rows){
 /* ---------- tabela ---------- */
 const COLS=[['_st','Situação'],['ra','RA'],['nome','NOME'],['turma','CODTURMA'],['modulo','MODULO'],['just','JUSTIFICADA'],['instr','Criada por'],['dataFalta','DATA_FALTA'],['criadaEm','Criada em'],['email','EMAIL JOVEM'],['empresa','EMPRESA'],['estado','ESTADO'],['dataOc','DATAOCORRENCIA'],['grupo','GRUPO_OCORRENCIA'],['tipo','TIPO_OCORRENCIA'],['atend','ATENDIMENTO_RESPONSAVEL'],['obs','OBSERVACOES'],['desl','DATA DESLIGAMENTO'],['total','Total Geral']];
 /* visão do instrutor: colunas originais pedidas + colunas editáveis do checklist (logo após o nome do jovem) */
-const COLS_INS=[['nome','Jovem'],['_st','Situação'],['dataFalta','Data da falta'],['turma','Turma'],['modulo','Módulo'],['just','Justificada'],['tipo','Ocorrências'],...CKF.map(([f,l])=>['ck_'+f,l.charAt(0)+l.slice(1).toLowerCase()]),['ck_data','Última alteração'],['_acoes','Ações']];
+const COLS_INS=[['nome','Jovem'],['_st','Situação'],['dataFalta','Data da falta'],['turma','Turma'],['modulo','Módulo'],['estado','Estado'],['just','Justificada'],['tipo','Ocorrências'],...CKF.map(([f,l])=>['ck_'+f,l.charAt(0)+l.slice(1).toLowerCase()]),['ck_data','Última alteração'],['_acoes','Ações']];
 /* Excel do instrutor: mantém os nomes técnicos das colunas da base */
 const EXP_INS=[['ra','RA'],['nome','NOME'],['turma','CODTURMA'],['modulo','MODULO'],['just','JUSTIFICADA'],['instr','Criada por'],['dataFalta','DATA_FALTA'],['email','EMAIL JOVEM'],['empresa','EMPRESA'],['estado','ESTADO'],['dataOc','DATAOCORRENCIA'],['grupo','GRUPO_OCORRENCIA'],['tipo','TIPO_OCORRENCIA'],['atend','ATENDIMENTO_RESPONSAVEL'],['obs','OBSERVACOES'],...CKF.map(([f,l])=>['ck_'+f,l]),['ck_data','ÚLTIMA ALTERAÇÃO']];
 const cols=()=>INS()?COLS_INS:COLS;
@@ -842,7 +849,7 @@ const stTags=r=>INS()?[stIns(r)]:[r.just,r.hasOc?'Com ocorrência':'Sem ocorrên
 const stTxt=r=>stTags(r).join(' ');
 /* colunas com filtro por lista de opções */
 const tipoVals=r=>r.ocs.length?[...new Set(r.ocs.map(o=>o.tipo||'(não informado)'))]:['(sem ocorrência)'];
-const SELF={_st:r=>stTags(r),modulo:r=>[r.modulo||'(vazio)'],just:r=>[r.just],tipo:tipoVals};
+const SELF={_st:r=>stTags(r),modulo:r=>[r.modulo||'(vazio)'],estado:r=>[r.estado||'(vazio)'],just:r=>[r.just],tipo:tipoVals};
 const selOpts=k=>k.startsWith('ck_')?['Sim','Não']:k==='_st'&&INS()?['Pendente','Em andamento','Concluída']:k==='_st'?['Justificada','Não justificada','Não informado','Com ocorrência','Sem ocorrência','Mais de uma ocorrência','Atendimento registrado','Verificar atendimento',...(INS()?['Em acompanhamento','Não acompanhada']:[])]:[...new Set(DATA.flatMap(SELF[k]))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true}));
 const isSel=k=>!!SELF[k]||(k.startsWith('ck_')&&k!=='ck_data');
 const sortVal=(r,k)=>k==='_st'&&INS()?String(ST_ORD[stIns(r)]*10+ckN(r)):k==='_st'?stTxt(r):k==='ck_data'?ckDate(r):k.startsWith('ck_')?cell(r,k):r[k];
@@ -897,6 +904,7 @@ function renderTable(){
     return `<tr class="${r.just==='Justificada'?'rj':r.just==='Não justificada'?'rn':'ri'}${na?' na':''}">`+C.map(([k,l])=>tdFor(r,k,l,ins)).join('')+'</tr>'+(ins&&OPEN.has(rkey(r))?detalheFalta(r,C.length):'')}).join(''):`<tr><td colspan="${C.length}" class="empty">${ins&&scope==='st_pend'?'Nenhuma falta pendente. Tudo em dia!':'Nenhum registro encontrado.'}</td></tr>`;
   $('#pInfo').textContent=rows.length?`${nf.format(page*PS+1)}–${nf.format(Math.min(rows.length,page*PS+PS))} de ${nf.format(rows.length)} ${ins?'faltas':'registros'} · página ${page+1} de ${pages}`:(ins?'0 faltas':'0 registros');
   $('#pPrev').disabled=page===0;$('#pNext').disabled=page>=pages-1;
+  syncExp(pages);
   $('#scopeChip').classList.toggle('on',!!scope);$('#scopeTxt').textContent=scope?(ins?'Mostrando: ':'Recorte: ')+SCOPES[scope][0]:'';
   if(ins){const w=$('.tscroll').clientWidth;if(w>700)document.querySelectorAll('#det tr.dx td>div').forEach(d=>d.style.maxWidth=(w-40)+'px');const sel=$('#f_st');if(sel)sel.value=scope&&scope.startsWith('st_')?scope:'';document.querySelectorAll('.qk [data-q]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.q==='pend'?String(scope==='st_pend'):b.dataset.q===qkPer()?'true':'false'))}
 }
@@ -979,9 +987,23 @@ async function fetchChecklist(){
 
 /* ---------- exportação ---------- */
 let downloads=null;
+/* opções de exportação: todas as páginas ou as primeiras N páginas (na ordem e com os filtros atuais) */
+function syncExp(pages){
+  const modo=$('#expModo').value,inp=$('#expN');
+  $('#expModo').options[0].textContent=`Todas as páginas (${nf.format(pages)})`;
+  $('#expNWrap').hidden=modo!=='n';inp.max=pages;
+  if(+inp.value>pages)inp.value=pages;
+  $('#expNMax').textContent=`de ${nf.format(pages)} página${pages>1?'s':''}`;
+}
+function expRows(){
+  const rows=tableRows();if($('#expModo').value!=='n')return rows;
+  const pages=Math.max(1,Math.ceil(rows.length/PS));
+  const n=Math.min(pages,Math.max(1,Math.floor(+$('#expN').value)||1));$('#expN').value=n;
+  return rows.slice(0,n*PS);
+}
 async function exportXlsx(){
   if(typeof XLSX==='undefined'){toast('Biblioteca de Excel indisponível.');return}
-  const rows=tableRows();if(!rows.length){toast('Nada para exportar.');return}
+  const rows=expRows();if(!rows.length){toast('Nada para exportar.');return}
   const ins=INS();
   const EC=ins?EXP_INS:cols().slice(1);
   const out=rows.map(r=>{const o={};EC.forEach(([k,l])=>{o[l]=cell(r,k)});if(ins){o['ALTERADO POR']=ckPor(r);o['SITUAÇÃO']=stIns(r);o['ETAPAS CONCLUÍDAS']=`${ckN(r)} de 4`}o['Possui ocorrência']=r.hasOc?'Sim':'Não';o['Acompanhamento']=r.acomp==='Verificar'?'Sem atendimento registrado':r.acomp;return o});
@@ -1047,6 +1069,8 @@ $('#pPrev').addEventListener('click',()=>{page--;renderTable()});$('#pNext').add
 $('#rkToggle').addEventListener('click',()=>{const on=document.body.classList.toggle('rk-open');$('#rkToggle').textContent=on?'Ocultar ranking completo ▴':'Ver ranking completo ▾'});
 $('#r1mode').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;r1mode=b.dataset.m;$('#r1mode').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));if(INS())renderRanksIns();else renderRanks(cur())});
 $('#btnXlsx').addEventListener('click',exportXlsx);
+$('#expModo').addEventListener('change',()=>{const n=Math.max(1,Math.ceil(tableRows().length/PS));syncExp(n);if($('#expModo').value==='n')$('#expN').focus()});
+$('#expN').addEventListener('change',()=>{const n=Math.max(1,Math.ceil(tableRows().length/PS)),v=Math.min(n,Math.max(1,Math.floor(+$('#expN').value)||1));$('#expN').value=v});
 $('#det').addEventListener('change',e=>{const i=e.target.closest('input[data-ck]');if(i)saveCk(i)});
 /* ---------- Supabase ---------- */
 const COLS_DB='ra,nome,codturma,modulo,justificada,criada_por,data_falta,criada_em,email_jovem,empresa,estado,data_ocorrencia,grupo_ocorrencia,tipo_ocorrencia,atendimento_responsavel,observacoes,data_desligamento,total_geral';
